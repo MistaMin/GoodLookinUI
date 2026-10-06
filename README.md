@@ -2,6 +2,29 @@
 
 An independent C++20 toolkit for generated analogue-hardware and retro-futuristic interfaces for audio plugins and tools. It contains no plugin: it is meant to be used by plugins, which live in their own repositories. This is an early implementation, not a finished framework.
 
+## Screenshots
+
+Everything below is generated in code (no bitmaps) and rendered by the gallery app in `examples/gallery`
+(`GoodLookinUI Gallery --screenshots <folder>` regenerates these images).
+
+### 46 knobs
+![Knobs](docs/images/knobs.png)
+
+### 40 plates, with surface finishes
+![Plates](docs/images/plates.png)
+
+### Meters: professional hardware, 80s dash and cyberpunk
+![Meters](docs/images/meters.png)
+
+### Sliders
+![Sliders](docs/images/sliders.png)
+
+### Switches, push buttons, lamps and readouts
+![Switches and lamps](docs/images/switches.png)
+
+### Spectrum analyser looks, smoothing and spectrogram
+![Spectrum](docs/images/spectrum.png)
+
 ## Implemented
 
 - JUCE-free design model, strict versioned CSV reader/writer and critically damped display motion.

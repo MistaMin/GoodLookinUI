@@ -13,6 +13,7 @@ public:
     void initialise(const juce::String& commandLine) override {
         auto args = juce::StringArray::fromTokens(commandLine, true);
         if (args.size() >= 2 && args[0] == "--selftest") { selfTest(juce::File(args[1])); return; }
+        if (args.size() >= 2 && args[0] == "--screenshots") { screenshots(juce::File(args[1])); return; }
         window = std::make_unique<Window>();
     }
     void shutdown() override { window.reset(); }
@@ -26,6 +27,17 @@ private:
     static long difference(const juce::Image& a, const juce::Image& b) {
         long n = 0; for (int y = 0; y < a.getHeight(); y += 2) for (int x = 0; x < a.getWidth(); x += 2) { auto p = a.getPixelAt(x, y), q = b.getPixelAt(x, y); n += std::abs(p.getRed() - q.getRed()) + std::abs(p.getGreen() - q.getGreen()) + std::abs(p.getBlue() - q.getBlue()); }
         return n;
+    }
+    // Renders every page at 2x for documentation (docs/images). The spectrogram gets extra time to fill.
+    void screenshots(const juce::File& out) {
+        out.createDirectory(); goodlookinui::juce_adapter::Gallery g;
+        static const char* names[] = {"knobs", "plates", "meters", "sliders", "switches", "spectrum"};
+        for (int p = 0; p < goodlookinui::juce_adapter::Gallery::numPages; ++p) {
+            auto img = g.renderPage(p, p == 5 ? 16 : 5, 2.0f);
+            juce::File f = out.getChildFile(juce::String(names[p]) + ".png"); f.deleteFile(); juce::FileOutputStream o(f); juce::PNGImageFormat().writeImageToStream(img, o);
+            std::printf("wrote %s (%d x %d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
+        }
+        setApplicationReturnValue(0); quit();
     }
     void selfTest(const juce::File& out) {
         out.createDirectory(); int failures = 0; goodlookinui::juce_adapter::Gallery g;
