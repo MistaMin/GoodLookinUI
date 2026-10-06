@@ -5,14 +5,15 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <GoodLookinUI.h>
 #include <Gallery.h>
+#include <DesignFiles.h>
 
 class GalleryApp : public juce::JUCEApplication {
 public:
     const juce::String getApplicationName() override { return "GoodLookinUI Gallery"; }
-    const juce::String getApplicationVersion() override { return "0.2.2"; }
+    const juce::String getApplicationVersion() override { return "0.2.3"; }
     void initialise(const juce::String& commandLine) override {
         auto args = juce::StringArray::fromTokens(commandLine, true);
-        if (args.size() >= 2 && args[0] == "--selftest") { selfTest(juce::File(args[1])); return; }
+        if (args.size() >= 2 && args[0] == "--selftest") { const juce::File dir(args[1]); juce::MessageManager::callAsync([this, dir] { selfTest(dir); }); return; }
         if (args.size() >= 2 && args[0] == "--screenshots") { screenshots(juce::File(args[1])); return; }
         window = std::make_unique<Window>();
     }
@@ -55,7 +56,7 @@ private:
         goodlookinui::juce_adapter::retro::glowEnabled = true;
         const bool glowOk = difference(on, off) > 20000; std::printf("%s glow switch changes the meters\n", glowOk ? "PASS" : "FAIL"); if (!glowOk) ++failures;
         failures += marksTest(out);
-        setApplicationReturnValue(failures == 0 ? 0 : 1); quit();
+        autosaveTest(out, failures);                       // finishes (and quits) asynchronously: it needs the timer to fire
     }
     // Printed marks must contrast with the plate. For every knob style, render the same knob with marks forced
     // light and forced dark: the pixels that differ ARE the marks, so the dark ones must be darker than the light
@@ -91,6 +92,38 @@ private:
         juce::File f = out.getChildFile("marks.png"); f.deleteFile(); juce::FileOutputStream o(f); juce::PNGImageFormat().writeImageToStream(sheet, o);
         std::printf("%s printed-mark contrast (%d knob/plate combinations checked, %d styles print marks)\n", bad == 0 ? "PASS" : "FAIL", checked, withMarks);
         return bad;
+    }
+    // Design autosave: debounced, atomic, quiet when nothing changed, flushed on close.
+    void autosaveTest(const juce::File& base, int failuresSoFar) {
+        using goodlookinui::juce_adapter::DesignAutosave;
+        struct State { juce::File dir; std::unique_ptr<DesignAutosave> a; int saves = 0, writes = 0, bad = 0; };
+        auto st = std::make_shared<State>(); st->dir = base.getChildFile("autosave-test"); st->dir.deleteRecursively();
+        st->a = std::make_unique<DesignAutosave>(st->dir.getChildFile("not/yet/there"), 40);
+        st->a->onSaved = [st](const DesignAutosave::Event& e) { ++st->saves; if (e.wrote) ++st->writes; };
+        auto check = [st](bool ok, const char* what) { std::printf("%s autosave: %s\n", ok ? "PASS" : "FAIL", what); if (!ok) ++st->bad; };
+        for (int i = 0; i < 20; ++i) st->a->request("Design.csv", "edit " + std::to_string(i) + "\n");          // a burst, like dragging a colour wheel
+        check(!st->a->fileFor("Design.csv").existsAsFile(), "nothing is written while the burst is still going");
+        juce::Timer::callAfterDelay(500, [this, st, check, failuresSoFar]() mutable {
+            auto& a = *st->a;
+            check(a.fileFor("Design.csv").existsAsFile() && a.read("Design.csv") == "edit 19\n" && st->saves == 1 && st->writes == 1, "the burst becomes one write holding the last edit (folders created as needed)");
+            check(a.writeNow("Design.csv", "edit 19\n") && st->writes == 1, "saving identical text does not touch the file");
+            const auto stamp = a.fileFor("Design.csv").getLastModificationTime(); juce::Thread::sleep(1100);
+            a.writeNow("Design.csv", "edit 19\n"); check(a.fileFor("Design.csv").getLastModificationTime() == stamp, "an unchanged file keeps its modification time (git sees no change)");
+            a.writeNow("Design.csv", "edit 20\n"); check(a.read("Design.csv") == "edit 20\n" && st->writes == 2, "a real change is written");
+            int leftovers = 0; for (auto& f : a.getFolder().findChildFiles(juce::File::findFiles, false)) if (f.getFileName() != "Design.csv" && f.getFileName() != "Crlf.csv") ++leftovers;
+            check(leftovers == 0, "no temporary files are left behind");
+            // a file that already uses Windows line endings keeps them, and an unchanged one is not rewritten
+            a.fileFor("Crlf.csv").replaceWithText("one\r\ntwo\r\n", false, false, "\r\n");
+            const auto crlfStamp = a.fileFor("Crlf.csv").getLastModificationTime(); juce::Thread::sleep(1100);
+            a.writeNow("Crlf.csv", "one\ntwo\n"); check(a.fileFor("Crlf.csv").getLastModificationTime() == crlfStamp, "same text in an existing CRLF file is not rewritten");
+            a.writeNow("Crlf.csv", "one\nthree\n"); check(a.fileFor("Crlf.csv").loadFileAsString() == "one\r\nthree\r\n", "a changed CRLF file stays CRLF (one-line diff, not a whole-file diff)");
+            a.request("Looks.csv", "pending when closed\n");
+            st->a.reset();                                                                              // destructor flushes
+            check(st->dir.getChildFile("not/yet/there/Looks.csv").loadFileAsString() == "pending when closed\n", "closing right after an edit still saves it");
+            { DesignAutosave none; none.request("x.csv", "y"); check(!none.hasFolder(), "without a folder nothing happens and nothing crashes"); }
+            st->dir.deleteRecursively();
+            setApplicationReturnValue(failuresSoFar + st->bad == 0 ? 0 : 1); quit();
+        });
     }
     std::unique_ptr<Window> window;
 };

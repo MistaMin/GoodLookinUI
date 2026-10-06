@@ -60,6 +60,7 @@ public:
             }
     }
     void refresh() { loadFields(); }
+    void setStatus(const juce::String& t) { status.setText(t, juce::dontSendNotification); }
 
     void paint(juce::Graphics& g) override {
         g.fillAll(juce::Colour(0xff18222c)); g.setColour(juce::Colour(0xff39b6c8)); g.drawRect(getLocalBounds(), 2);
@@ -140,7 +141,7 @@ private:
         chooser->launchAsync(flags | juce::FileBrowserComponent::canSelectFiles, [safe = juce::Component::SafePointer<LookStudio>(this), writing](const juce::FileChooser& c) {
             if (!safe || c.getResult() == juce::File{}) return;
             if (writing) {
-                safe->say(c.getResult().replaceWithText(safe->table.toCsv()) ? "Looks saved. Copy the file over Designs/LookTriggers.csv and rebuild to bake it in." : "Save failed");
+                safe->say(c.getResult().replaceWithText(safe->table.toCsv(), false, false, "\n") ? "Looks saved to the chosen file." : "Save failed");
             } else {
                 std::ifstream in(c.getResult().getFullPathName().toStdString());
                 std::stringstream ss; ss << in.rdbuf();
