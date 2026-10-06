@@ -46,7 +46,7 @@ goodlookinui::juce_adapter::drawKnob(g, knobBounds, normalizedValue, gain, true)
 Supported styles: `metal`, `bakelite`, `ivory`, `console`. Helpers also draw
 panels, keys and screws. These are drawing helpers, not parameter attachments.
 The host plugin implements slider interaction and DSP/host automation bindings.
-HybridEQ is the working reference: https://github.com/MistaMin/HybridEQ
+Plugins that use the toolkit live in their own repositories; none is included here.
 
 For animation, step a `goodlookinui::Motion` on the UI thread with elapsed seconds.
 Send parameter changes directly to DSP; only animate the displayed position.

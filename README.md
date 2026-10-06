@@ -1,6 +1,6 @@
 # GoodLookinUI
 
-An independent C++20 toolkit for generated analogue hardware interfaces, starting with HybridEQ. This is an initial implementation, not a finished framework.
+An independent C++20 toolkit for generated analogue-hardware and retro-futuristic interfaces for audio plugins and tools. It contains no plugin: it is meant to be used by plugins, which live in their own repositories. This is an early implementation, not a finished framework.
 
 ## Implemented
 
@@ -12,9 +12,9 @@ An independent C++20 toolkit for generated analogue hardware interfaces, startin
 - Lock-free level tap (`include/goodlookinui/LevelTracker.h`) and an editable per-parameter look table (`include/goodlookinui/LookTable.h`).
 - Development-only inspectors (`Studio.h`, `LookStudio.h`, `SpectrumStudio.h`): knob style, label, colour wheel, font, position and size apply immediately; section looks and spectrum settings are saved per choice.
 - Development-only inspector: style, label, hex colour, font size, position, dimensions, save/load and undo.
-- HybridEQ integration retaining existing parameter IDs and attachments, with proportional scaling and a compiled design file.
+- Integration helpers that keep a host plugin's parameter IDs and attachments unchanged, with proportional scaling and a compiled design file.
 
-The design inspector currently supports the 16 existing HybridEQ knobs. Positions are relative to their containing panel. It does not yet add controls, edit menus, drag controls or move them between panels.
+The design inspector edits the knobs a host registers with it. Positions are relative to their containing panel. It does not yet add controls, edit menus, drag controls or move them between panels.
 
 ## Dependencies
 
@@ -46,14 +46,7 @@ contains CMake examples, renderer use and developer-editor setup.
 
 Supply JUCE targets before adding this directory with `add_subdirectory`. Link `goodlookinui_juce` for the adapter or `goodlookinui` for the dependency-free core. Include `GoodLookinUI.h` or `goodlookinui/Design.h` respectively. JUCE is not vendored or forked.
 
-Keep `GoodLookinUI` and `HybridEQ` as sibling directories, or set `GOODLOOKINUI_ROOT` in HybridEQ's CMake configuration.
-
-```sh
-cmake -S ../HybridEQ -B ../HybridEQ/build -DCMAKE_BUILD_TYPE=Debug
-cmake --build ../HybridEQ/build --target HybridEQ_Standalone
-```
-
-HybridEQ includes AU on macOS and adds AAX only when the optional SDK is present. Windows/Linux and LV2 validation are later milestones. In a Debug build, click **Design** to open the inspector. Select a knob and edit its properties; changes apply immediately. Save the design over `HybridEQ/Designs/HybridEQ.csv` and rebuild to embed it in the release. Release builds compile out the inspector regardless of the editor option; Debug builds can disable it with `HYBRIDEQ_DESIGN_EDITOR=OFF`.
+Add this directory to a plugin project (as a git submodule, or as a sibling checkout selected by a CMake variable of your own) and link `goodlookinui_juce`. The toolkit does not build or ship any plugin. Developer builds define `GOODLOOKINUI_ENABLE_EDITOR=1` to include the inspectors; release builds compile them out. In a developer build, open the inspector from your plugin, select a knob and edit its properties; changes apply immediately. Save the design as CSV and embed it in your plugin's build.
 
 ## Verify the core without JUCE or CMake
 
@@ -68,12 +61,9 @@ Core checks cover CSV roundtrips with commas and quotes, rejected malformed geom
 
 See [the implementation plan](docs/IMPLEMENTATION.md). GoodLookinUI is MIT licensed.
 
-## HybridEQ console edition
+## Console-style appearance
 
-The first complete appearance built with this toolkit is an SSL-inspired
-console panel for HybridEQ: brown/blue/green/red EQ caps, cream filter knobs,
-aligned strips, physical choice keys with dropdowns, generated fader caps and
-an inset response display. GoodLookinUI remains independent of the DSP.
+The first complete appearance built with this toolkit is a vintage-console-inspired panel: brown/blue/green/red EQ caps, cream filter knobs, aligned strips, physical choice keys with dropdowns, generated fader caps and an inset response display. The toolkit stays independent of any DSP.
 
 Existing CSV designs with the original HardwareUI header can still be loaded. Newly saved designs use the GoodLookinUI header.
 
