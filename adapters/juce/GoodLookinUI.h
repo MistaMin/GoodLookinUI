@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Marcos Deida
 #pragma once
 #include <goodlookinui/Design.h>
+#include "Knobs.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <fstream>
 #include <functional>
@@ -17,10 +18,69 @@ inline void drawScrew(juce::Graphics& g, float x, float y) {
     g.setGradientFill(juce::ColourGradient(juce::Colour(0xff7c8589),x-3,y-3,juce::Colour(0xff252b2e),x+3,y+3,false));g.fillEllipse(r);
     g.setColour(juce::Colour(0xff121719));g.drawLine(x-2,y+1,x+2,y-1,1.3f);
 }
-inline void drawPanel(juce::Graphics& g, juce::Rectangle<float> r) {
+// Surface detail for plate finishes (see Faceplate::finish). Uses translucent
+// black/white so it works over any plate colour.
+inline void drawFinish(juce::Graphics& g, juce::Rectangle<float> r, int finish) {
+    if(finish<=0) return;
+    g.saveState();
+    juce::Path clip;clip.addRoundedRectangle(r,2.0f);g.reduceClipRegion(clip,{});
+    const float x0=r.getX(),x1=r.getRight(),y0=r.getY(),y1=r.getBottom();
+    switch(finish) {
+    case 1: // brushed: fine horizontal streaks
+        for(int y=int(y0);y<int(y1);++y){const unsigned h=unsigned(y)*2654435761u;
+            g.setColour(juce::Colour((h>>7)&1?0x0dffffff:0x0d000000));
+            g.drawHorizontalLine(y,x0+float(h%9),x1-float((h>>5)%13));}
+        break;
+    case 2: // wood grain: wavy lines
+        g.setColour(juce::Colour(0x26000000));
+        for(float y=y0+3;y<y1;y+=5.0f){juce::Path p;
+            for(float x=x0;x<=x1;x+=6.0f){const float yy=y+std::sin(x*0.045f+y*0.31f)*2.2f;x==x0?p.startNewSubPath(x,yy):p.lineTo(x,yy);}
+            g.strokePath(p,juce::PathStrokeType(0.8f));}
+        break;
+    case 3: // scanlines with a faint glow at the top
+        g.setColour(juce::Colour(0x1c000000));
+        for(float y=y0;y<y1;y+=3.0f) g.drawHorizontalLine(int(y),x0,x1);
+        g.setGradientFill(juce::ColourGradient(juce::Colour(0x14ffffff),0,y0,juce::Colour(0x00ffffff),0,y0+60,false));
+        g.fillRect(r);
+        break;
+    case 4: // hazard stripes along the top and bottom edges
+        for(float yBand:{y0+1.0f,y1-7.0f})
+            for(float x=x0-8;x<x1;x+=12.0f){juce::Path p;
+                p.addQuadrilateral(x,yBand+6,x+6,yBand+6,x+12,yBand,x+6,yBand);
+                g.setColour(juce::Colour(0xffe8c820));g.fillPath(p);}
+        g.setColour(juce::Colour(0x55000000));
+        g.fillRect(x0,y0+1,x1-x0,6.0f);
+        break;
+    case 6: // neon edge glow: bright inner border with a soft halo and corner ticks
+        for(int k=5;k>=1;--k){g.setColour(juce::Colour(0xff39f2ff).withAlpha(0.035f*float(6-k)));g.drawRoundedRectangle(r.reduced(1.0f+float(k)*0.7f),2,1.6f);}
+        g.setColour(juce::Colour(0xcc39f2ff));g.drawRoundedRectangle(r.reduced(2.0f),2,1.0f);
+        g.setColour(juce::Colour(0xffff4fd8));g.drawLine(x0+2,y0+2,x0+22,y0+2,2.0f);g.drawLine(x1-22,y1-2,x1-2,y1-2,2.0f);
+        break;
+    case 7: { // synth horizon: sun gradient and a perspective grid in the lower half
+        const float hy=y0+(y1-y0)*0.58f;
+        g.setGradientFill(juce::ColourGradient(juce::Colour(0x00ff4fd8),0,y0,juce::Colour(0x55ff4fd8),0,hy,false));g.fillRect(x0,y0,x1-x0,hy-y0);
+        g.setColour(juce::Colour(0x8835f2ff));g.drawHorizontalLine(int(hy),x0,x1);
+        for(int i=-8;i<=8;++i)g.drawLine(x0+(x1-x0)*0.5f+float(i)*3.0f,hy,x0+(x1-x0)*0.5f+float(i)*(x1-x0)*0.16f,y1,0.7f);
+        for(int j=1;j<=6;++j){const float y=hy+std::pow(float(j)/6.0f,2.0f)*(y1-hy);g.drawHorizontalLine(int(y),x0,x1);}
+        break; }
+    default: // 5: faint grid with corner brackets
+        g.setColour(juce::Colour(0x12ffffff));
+        for(float x=x0+14;x<x1;x+=14.0f) g.drawVerticalLine(int(x),y0,y1);
+        for(float y=y0+14;y<y1;y+=14.0f) g.drawHorizontalLine(int(y),x0,x1);
+        g.setColour(juce::Colour(0x66ffffff));
+        for(auto c:{juce::Point<float>(x0,y0),juce::Point<float>(x1,y0),juce::Point<float>(x0,y1),juce::Point<float>(x1,y1)}){
+            const float sx=c.x==x0?1.0f:-1.0f,sy=c.y==y0?1.0f:-1.0f;
+            g.drawLine(c.x,c.y+sy*10,c.x,c.y,1.2f);g.drawLine(c.x,c.y,c.x+sx*10,c.y,1.2f);}
+        break;
+    }
+    g.restoreState();
+}
+inline void drawPanel(juce::Graphics& g, juce::Rectangle<float> r,
+                      juce::Colour top=juce::Colour(0xff394247), juce::Colour bottom=juce::Colour(0xff2a3034), int finish=0) {
     g.setColour(juce::Colour(0x88000000));g.fillRoundedRectangle(r.translated(0,2),3);
-    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff394247),r.getX(),r.getY(),
-        juce::Colour(0xff2a3034),r.getRight(),r.getBottom(),false));g.fillRoundedRectangle(r,2);
+    g.setGradientFill(juce::ColourGradient(top,r.getX(),r.getY(),
+        bottom,r.getRight(),r.getBottom(),false));g.fillRoundedRectangle(r,2);
+    drawFinish(g,r,finish);
     g.setColour(juce::Colour(0xff101618));g.drawRoundedRectangle(r,2,1);
     g.setColour(juce::Colour(0x22ffffff));g.drawHorizontalLine(int(r.getY()+1),r.getX()+2,r.getRight()-2);
 }
@@ -71,92 +131,16 @@ inline void drawConsoleKnob(juce::Graphics& g,juce::Rectangle<float> bounds,doub
 }
 inline void drawKnob(juce::Graphics& g, juce::Rectangle<float> bounds,
                      double proportion, const Item& item, bool active) {
-    if(item.style=="console") {drawConsoleKnob(g,bounds,proportion,item,active);return;}
+    const auto* info=findStyle(item.style);
+    const auto style=info?info->style:KnobStyle::Brit;
+    if(style==KnobStyle::Brit) {drawConsoleKnob(g,bounds,proportion,item,active);return;}
     const float d=juce::jmin(bounds.getWidth(),bounds.getHeight());
-    auto disc=juce::Rectangle<float>(d,d).withCentre(bounds.getCentre());
-    const auto centre=disc.getCentre(); const float r=d*0.5f;
-    g.setColour(juce::Colour(0x66000000));g.fillEllipse(disc.translated(2,4));
-    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff707174),disc.getX(),disc.getY(),
-        juce::Colour(0xff17181a),disc.getRight(),disc.getBottom(),false));g.fillEllipse(disc);
-    g.setColour(juce::Colour(0xff999a9b));g.drawEllipse(disc.reduced(1),0.7f);
-    auto cap=disc.reduced(r*0.17f);
-    auto base=active?colour(item.colour):juce::Colour(0xff555555);
-    if(item.style=="bakelite")base=base.darker(0.65f);
-    if(item.style=="ivory")base=juce::Colour(0xffddd5ba).interpolatedWith(base,0.15f);
-    g.setGradientFill(juce::ColourGradient(base.brighter(0.35f),cap.getX(),cap.getY(),
-        base.darker(0.55f),cap.getRight(),cap.getBottom(),false));g.fillEllipse(cap);
-    g.setColour(juce::Colour(0x44000000));
-    for(int n=0;n<40;++n){const float a=float(n)*juce::MathConstants<float>::twoPi/40;
-        auto p=centre+juce::Point<float>(std::sin(a),-std::cos(a))*(r*0.8f);
-        auto q=centre+juce::Point<float>(std::sin(a),-std::cos(a))*(r*0.69f);
-        g.drawLine({p,q},0.8f);}
-    g.setColour(juce::Colour(0x55ffffff));g.drawEllipse(cap.reduced(1),0.6f);
-    const float a=float((proportion*1.6-0.8)*juce::MathConstants<double>::pi);
-    auto tip=centre+juce::Point<float>(std::sin(a),-std::cos(a))*(r*0.64f);
-    auto tail=centre+juce::Point<float>(std::sin(a),-std::cos(a))*(r*0.24f);
-    g.setColour(item.style=="ivory"?juce::Colour(0xff282521):juce::Colour(0xfffff4df));
-    g.drawLine({tail,tip},juce::jmax(1.5f,d*0.045f));
+    const auto c=bounds.getCentre();
+    if(!active) g.beginTransparencyLayer(0.55f);
+    knobs::Ctx k{g,c,d*0.5f,float((proportion*1.6-0.8)*juce::MathConstants<double>::pi),
+                 active?colour(item.colour):juce::Colour(0xff697170)};
+    knobs::draw(style,k);
+    if(!active) g.endTransparencyLayer();
 }
 
-#if GOODLOOKINUI_ENABLE_EDITOR
-// Development-only inspector. It is not included in a release translation unit.
-class Studio : public juce::Component {
-public:
-    struct Entry { Item item; juce::Component* component; std::function<void(const Item&)> apply; };
-    void add(Item item,juce::Component& component,std::function<void(const Item&)> applyItem) {
-        entries.push_back({std::move(item),&component,std::move(applyItem)});
-        selector.addItem(entries.back().item.id,int(entries.size()));
-        if(entries.size()==1) selector.setSelectedId(1,juce::sendNotificationSync);
-    }
-    Studio() {
-        for(auto* c:std::vector<juce::Component*>{&selector,&style,&label,&hex,&font,&x,&y,&w,&h,&apply,&save,&load,&undo,&status})addAndMakeVisible(c);
-        style.addItem("metal",1);style.addItem("bakelite",2);style.addItem("ivory",3);style.addItem("console",4);
-        for(auto* t:{&label,&hex,&font,&x,&y,&w,&h})t->setSelectAllWhenFocused(true);
-        apply.setButtonText("Apply");save.setButtonText("Save CSV");load.setButtonText("Load CSV");undo.setButtonText("Undo");
-        selector.onChange=[this]{show();}; apply.onClick=[this]{edit();};undo.onClick=[this]{if(!history.empty()){restore(history.back());history.pop_back();}};
-        save.onClick=[this]{choose(true);};load.onClick=[this]{choose(false);};
-        status.setText("Control | Style | Label | #Colour | Font | X Y W H",juce::dontSendNotification);
-    }
-    void paint(juce::Graphics& g) override {g.fillAll(juce::Colour(0xff18222c));g.setColour(juce::Colour(0xffce9435));g.drawRect(getLocalBounds(),2);}
-    void resized() override {
-        auto row=getLocalBounds().reduced(8);auto top=row.removeFromTop(26);
-        selector.setBounds(top.removeFromLeft(135));style.setBounds(top.removeFromLeft(90));label.setBounds(top.removeFromLeft(110));
-        hex.setBounds(top.removeFromLeft(90));font.setBounds(top.removeFromLeft(45));
-        for(auto* t:{&x,&y,&w,&h})t->setBounds(top.removeFromLeft(55));
-        auto buttons=row.removeFromTop(28);for(auto* b:{&apply,&save,&load,&undo})b->setBounds(buttons.removeFromLeft(95).reduced(2));
-        status.setBounds(row);
-    }
-private:
-    std::vector<Entry> entries;std::vector<std::vector<Item>> history;
-    juce::ComboBox selector,style;juce::TextEditor label,hex,font,x,y,w,h;
-    juce::TextButton apply,save,load,undo;juce::Label status;
-    std::unique_ptr<juce::FileChooser> chooser;
-    std::vector<Item> snapshot() const {std::vector<Item> out;for(auto& e:entries)out.push_back(e.item);return out;}
-    void show(){auto n=selector.getSelectedId()-1;if(n<0||n>=int(entries.size()))return;auto& i=entries[size_t(n)].item;
-        label.setText(i.label);hex.setText(i.colour);style.setSelectedId(i.style=="metal"?1:i.style=="bakelite"?2:i.style=="ivory"?3:4,juce::dontSendNotification);
-        font.setText(juce::String(i.fontSize));x.setText(juce::String(i.x));y.setText(juce::String(i.y));w.setText(juce::String(i.width));h.setText(juce::String(i.height));}
-    void restore(const std::vector<Item>& items){
-        // Verify the entire file before applying; parameter identities cannot be changed by artwork edits.
-        if(items.size()!=entries.size())throw std::runtime_error("Design must contain all registered controls");
-        for(auto& e:entries){auto i=std::find_if(items.begin(),items.end(),[&](auto& v){return v.id==e.item.id;});
-            if(i==items.end()||i->parameter!=e.item.parameter)throw std::runtime_error("Design parameter bindings do not match this plugin");validate(*i);}
-        for(auto& e:entries){e.item=*std::find_if(items.begin(),items.end(),[&](auto& v){return v.id==e.item.id;});e.apply(e.item);
-            e.component->setBounds(juce::roundToInt(e.item.x),juce::roundToInt(e.item.y),juce::roundToInt(e.item.width),juce::roundToInt(e.item.height));}show();}
-    void edit(){try{auto n=selector.getSelectedId()-1;if(n<0)return;auto items=snapshot();auto& i=items.at(size_t(n));
-        auto num=[](const juce::TextEditor& t){auto s=t.getText().toStdString();size_t end;float v=std::stof(s,&end);if(end!=s.size())throw std::runtime_error("Invalid number");return v;};
-        i.label=label.getText().toStdString();i.colour=hex.getText().toStdString();i.style=style.getText().toStdString();
-        i.fontSize=num(font);i.x=num(x);i.y=num(y);i.width=num(w);i.height=num(h);validate(i);
-        auto before=snapshot();restore(items);history.push_back(before);status.setText("Applied. DSP bindings preserved.",juce::dontSendNotification);
-        }catch(const std::exception& e){status.setText(e.what(),juce::dontSendNotification);}}
-    void choose(bool writing){chooser=std::make_unique<juce::FileChooser>(writing?"Save design":"Load design",juce::File{},"*.csv");
-        auto flags=writing?(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::warnAboutOverwriting):juce::FileBrowserComponent::openMode;
-        chooser->launchAsync(flags|juce::FileBrowserComponent::canSelectFiles,[safe=juce::Component::SafePointer<Studio>(this),writing](const juce::FileChooser& c){
-            if(!safe||c.getResult()==juce::File{})return;
-            try{if(writing){std::ostringstream out;writeDesign(out,safe->snapshot());if(!c.getResult().replaceWithText(out.str()))throw std::runtime_error("Save failed");}
-                else{std::ifstream in(c.getResult().getFullPathName().toStdString());auto items=readDesign(in);auto before=safe->snapshot();safe->restore(items);safe->history.push_back(before);}
-                safe->status.setText(writing?"Design saved":"Design loaded",juce::dontSendNotification);
-            }catch(const std::exception& e){safe->status.setText(e.what(),juce::dontSendNotification);}});
-    }
-};
-#endif
 }
