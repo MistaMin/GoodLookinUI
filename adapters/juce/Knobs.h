@@ -99,34 +99,46 @@ inline void drawN(const Ctx& k) {
     g.drawLine({at(k, k.a, G * 1.01f), at(k, k.a, R * 0.99f)}, k.r * 0.05f);
 }
 
-// A: silver pointer (chicken-head) body with a coloured inset cap.
+// A: flared silver crown with a large flat matte cap (a pointer lug on top, small side lugs).
 inline void drawA(const Ctx& k) {
     auto& g = k.g;
-    dots(k, 0.95f, 21, k.r * 0.04f, k.accent.brighter(0.5f));
-    const float R = k.r * 0.58f;
-    auto body = wedge(k, R * 0.80f, k.r * 0.93f, k.r * 0.24f, k.a);
-    // contact shadow that follows the pointer shape
-    for (int n = 3; n > 0; --n) {
+    dots(k, 0.97f, 21, k.r * 0.05f, k.accent.brighter(0.55f));
+    const float R = k.r * 0.74f;
+    auto body = wedge(k, R * 0.92f, k.r * 0.97f, k.r * 0.20f, k.a);
+    const Point<float> lugA = at(k, k.a + 1.72f, R * 1.0f), lugB = at(k, k.a - 1.72f, R * 1.0f);
+    for (int n = 3; n > 0; --n) {                                          // contact shadow follows the shape
         g.setColour(Colour(0x16000000));
         const auto t = juce::AffineTransform::translation(float(n) * 0.6f, float(n) * 1.1f);
-        g.fillPath(body, t);
-        g.fillEllipse(k.c.x - R + float(n) * 0.6f, k.c.y - R + float(n) * 1.1f, R * 2, R * 2);
+        g.fillPath(body, t); g.fillEllipse(k.c.x - R + float(n) * 0.6f, k.c.y - R + float(n) * 1.1f, R * 2, R * 2);
     }
-    g.setGradientFill(juce::ColourGradient(Colour(0xffe9ecee), k.c.x - R, k.c.y - R, Colour(0xff767d82), k.c.x + R, k.c.y + R, false));
-    g.fillPath(body);
-    g.setColour(Colour(0xff252a2d));
-    g.strokePath(body, juce::PathStrokeType(1.0f));
-    g.setGradientFill(juce::ColourGradient(Colour(0xfff2f4f4), k.c.x - R, k.c.y - R, Colour(0xff6b7378), k.c.x + R, k.c.y + R, false));
-    g.fillEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2);
-    g.setColour(Colour(0xff252a2d));
-    g.drawEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2, 1.0f);
-    const float C = R * 0.70f;
-    disc(k, C, k.accent.brighter(0.15f), k.accent.darker(0.35f));
-    rim(k, C, k.accent.darker(0.7f));
-    gloss(k, C, 0.12f);
-    // ridge along the pointer so its direction reads at a glance
-    g.setColour(Colour(0x66000000));
-    g.drawLine({at(k, k.a, R * 0.78f), at(k, k.a, k.r * 0.90f)}, 1.2f);
+    g.setGradientFill(juce::ColourGradient(Colour(0xfff1f3f3), k.c.x - R, k.c.y - R, Colour(0xff8a9195), k.c.x + R, k.c.y + R, false));
+    g.fillPath(body); g.fillEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2);
+    for (auto l : {lugA, lugB}) g.fillEllipse(l.x - R * 0.17f, l.y - R * 0.17f, R * 0.34f, R * 0.34f);
+    g.setColour(Colour(0xff2a2f32)); g.strokePath(body, juce::PathStrokeType(1.0f)); g.drawEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2, 1.0f);
+    for (auto l : {lugA, lugB}) g.drawEllipse(l.x - R * 0.17f, l.y - R * 0.17f, R * 0.34f, R * 0.34f, 0.8f);
+    g.setColour(Colour(0x55000000)); g.drawEllipse(k.c.x - R * 0.90f, k.c.y - R * 0.90f, R * 1.80f, R * 1.80f, 1.4f);   // groove around the cap
+    const float C = R * 0.86f;
+    g.setGradientFill(juce::ColourGradient(k.accent.brighter(0.10f), k.c.x - C, k.c.y - C, k.accent.darker(0.22f), k.c.x + C, k.c.y + C, false));
+    g.fillEllipse(k.c.x - C, k.c.y - C, C * 2, C * 2);                        // flat matte: no gloss
+    g.setColour(k.accent.darker(0.6f)); g.drawEllipse(k.c.x - C, k.c.y - C, C * 2, C * 2, 0.9f);
+    g.setColour(Colour(0x1affffff)); g.drawEllipse(k.c.x - C * 0.96f, k.c.y - C * 0.96f, C * 1.92f, C * 1.92f, 0.7f);
+    g.setColour(Colour(0x88000000)); g.drawLine({at(k, k.a, R * 0.80f), at(k, k.a, k.r * 0.93f)}, 1.2f);               // ridge on the pointer lug
+}
+
+// Mic: translucent crown pointer knob in the item colour with a white indicator.
+inline void drawMic(const Ctx& k) {
+    auto& g = k.g;
+    dots(k, 0.97f, 21, k.r * 0.045f, Colour(0xffe9eef2));
+    const float R = k.r * 0.70f;
+    auto body = wedge(k, R * 0.90f, k.r * 0.96f, k.r * 0.24f, k.a);
+    for (int n = 3; n > 0; --n) { g.setColour(Colour(0x16000000)); const auto t = juce::AffineTransform::translation(float(n) * 0.6f, float(n) * 1.1f); g.fillPath(body, t); g.fillEllipse(k.c.x - R + float(n) * 0.6f, k.c.y - R + float(n) * 1.1f, R * 2, R * 2); }
+    g.setGradientFill(juce::ColourGradient(k.accent.brighter(0.55f), k.c.x - R, k.c.y - R, k.accent.darker(0.65f), k.c.x + R, k.c.y + R, false));
+    g.fillPath(body); g.fillEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2);
+    g.setColour(k.accent.darker(0.8f)); g.strokePath(body, juce::PathStrokeType(1.0f)); g.drawEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2, 1.0f);
+    const float C = R * 0.62f;
+    g.setGradientFill(juce::ColourGradient(k.accent.brighter(0.25f), k.c.x - C, k.c.y - C, k.accent.darker(0.5f), k.c.x + C, k.c.y + C, false)); g.fillEllipse(k.c.x - C, k.c.y - C, C * 2, C * 2);
+    gloss(k, R, 0.22f);
+    line(k, R * 0.05f, k.r * 0.93f, k.r * 0.06f, Colour(0xfff8f4e6), k.a);
 }
 
 // FS: pale-grey skirt, coloured cap, black pointer line.
@@ -801,6 +813,32 @@ inline void drawDsh(const Ctx& k) {
     disc(k, k.r * 0.10f, Colour(0xff9a9fa3), Colour(0xff2a2d30));
 }
 
+// Ebn: ebony wood with a brass cap and an inlaid pointer line.
+inline void drawEbn(const Ctx& k) {
+    auto& g = k.g;
+    woodKnob(k, Colour(0xff3a2c22), Colour(0xff0b0806), Colour(0xff2b2018), Colour(0xff0e0a07), Colour(0x30c8a070));
+    const float C = k.r * 0.86f * 0.80f * 0.46f;
+    disc(k, C, Colour(0xfff1d98a), Colour(0xff8a6218)); rim(k, C, Colour(0xff4a3208), 1.0f);
+    g.setColour(Colour(0x44000000)); for (int i = 1; i <= 3; ++i) { const float e = C * float(i) / 3.2f; g.drawEllipse(k.c.x - e, k.c.y - e, e * 2, e * 2, 0.5f); }
+    gloss(k, C, 0.25f);
+}
+// Wnt: walnut top inside a chrome collar.
+inline void drawWnt(const Ctx& k) {
+    auto& g = k.g;
+    dots(k, 0.96f, 21, k.r * 0.04f, Colour(0xffe9eef2));
+    const float R = k.r * 0.82f, W = R * 0.78f;
+    shadow(k, R);
+    disc(k, R, Colour(0xfffcfdfd), Colour(0xff535a5e)); rim(k, R, Colour(0xff25292b));
+    g.setColour(Colour(0x55000000)); g.drawEllipse(k.c.x - R * 0.90f, k.c.y - R * 0.90f, R * 1.8f, R * 1.8f, 1.0f);
+    disc(k, W, Colour(0xff9a6a3e), Colour(0xff3a2210));
+    g.saveState(); juce::Path clip; clip.addEllipse(k.c.x - W, k.c.y - W, W * 2, W * 2); g.reduceClipRegion(clip, {});
+    g.addTransform(juce::AffineTransform::rotation(k.a, k.c.x, k.c.y)); g.setColour(Colour(0x40201008));
+    for (int i = -5; i <= 5; ++i) { juce::Path grain; for (int s2 = 0; s2 <= 16; ++s2) { const float x = k.c.x - W + W * 2 * float(s2) / 16.0f, y = k.c.y + float(i) * W * 0.17f + std::sin(float(s2) * 0.6f + float(i)) * W * 0.05f; s2 == 0 ? grain.startNewSubPath(x, y) : grain.lineTo(x, y); } g.strokePath(grain, juce::PathStrokeType(0.8f)); }
+    g.restoreState();
+    rim(k, W, Colour(0x55ffffff)); gloss(k, W, 0.22f);
+    line(k, W * 0.12f, W * 0.94f, k.r * 0.065f, k.accent.brighter(0.4f), k.a);
+}
+
 using Drawer = void (*)(const Ctx&);
 // Order must match goodlookinui::KnobStyle.
 inline constexpr Drawer drawers[] = {
@@ -808,7 +846,7 @@ inline constexpr Drawer drawers[] = {
     drawPtr, drawDm, drawSq, drawSeg, drawVfd, drawCyb,
     drawFat, drawPag, drawLvr, drawTab, drawWh, drawKnl, drawSkt, drawRib, drawChr, drawArc, drawBrg, drawNeo,
     drawHex, drawYel, drawKey, drawBrz, drawChk, drawIvr, drawMpl, drawLed, drawDbl, drawMini, drawTl,
-    drawGlw, drawGrd, drawDsh};
+    drawGlw, drawGrd, drawDsh, drawMic, drawEbn, drawWnt};
 static_assert(std::size(drawers) == std::size(goodlookinui::knobStyles), "one drawer per knob style");
 inline void draw(goodlookinui::KnobStyle style, const Ctx& k) {
     if (auto* d = drawers[int(style)]) d(k);
