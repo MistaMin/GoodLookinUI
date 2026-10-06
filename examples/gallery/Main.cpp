@@ -9,7 +9,7 @@
 class GalleryApp : public juce::JUCEApplication {
 public:
     const juce::String getApplicationName() override { return "GoodLookinUI Gallery"; }
-    const juce::String getApplicationVersion() override { return "0.2.0"; }
+    const juce::String getApplicationVersion() override { return "0.2.1"; }
     void initialise(const juce::String& commandLine) override {
         auto args = juce::StringArray::fromTokens(commandLine, true);
         if (args.size() >= 2 && args[0] == "--selftest") { selfTest(juce::File(args[1])); return; }
