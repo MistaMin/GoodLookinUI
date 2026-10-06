@@ -159,6 +159,12 @@ inline std::string quote(const std::string& s) {
         if(c=='\"') out+='\"'; out+=c; }
     return out+'\"';
 }
+// Quotes a field only when it has to be (a comma, quote or edge space), so files stay readable and a one-value edit
+// is a one-line diff.
+inline std::string quoteIfNeeded(const std::string& s) {
+    const bool plain = s.find_first_of(",\"") == std::string::npos && (s.empty() || (s.front() != ' ' && s.back() != ' '));
+    return plain && s.find_first_of("\r\n") == std::string::npos ? s : quote(s);
+}
 inline std::vector<std::string> fields(const std::string& line) {
     std::vector<std::string> out; std::string value; bool quoted=false, closed=false;
     for (std::size_t n=0;n<line.size();++n) {
@@ -174,13 +180,18 @@ inline std::vector<std::string> fields(const std::string& line) {
 }
 inline constexpr auto headerV1="id,parameter,label,style,colour,x,y,width,height,font size";   // files saved before `marks` existed
 inline constexpr auto header="id,parameter,label,style,colour,x,y,width,height,font size,marks";
+// The `marks` column is only written when some item uses it, so a design that never touches marks keeps the original
+// ten-column format byte for byte.
 inline void writeDesign(std::ostream& out, const std::vector<Item>& items) {
     out << std::setprecision(std::numeric_limits<float>::max_digits10);
-    out << "GoodLookinUI design version 1\n" << header << '\n';
+    bool anyMarks = false; for (const auto& i : items) if (i.marks != "auto") anyMarks = true;
+    out << "GoodLookinUI design version 1\n" << (anyMarks ? header : headerV1) << '\n';
     std::set<std::string> ids;
     for(const auto& i:items) {validate(i); if(!ids.insert(i.id).second) throw std::runtime_error("Duplicate ID");
-        out<<quote(i.id)<<','<<quote(i.parameter)<<','<<quote(i.label)<<','<<quote(i.style)<<','<<quote(i.colour)
-           <<','<<i.x<<','<<i.y<<','<<i.width<<','<<i.height<<','<<i.fontSize<<','<<quote(i.marks)<<'\n';}
+        out<<quoteIfNeeded(i.id)<<','<<quoteIfNeeded(i.parameter)<<','<<quoteIfNeeded(i.label)<<','<<quoteIfNeeded(i.style)<<','<<quoteIfNeeded(i.colour)
+           <<','<<i.x<<','<<i.y<<','<<i.width<<','<<i.height<<','<<i.fontSize;
+        if (anyMarks) out<<','<<quoteIfNeeded(i.marks);
+        out<<'\n';}
     if(!out) throw std::runtime_error("Could not write design");
 }
 inline std::vector<Item> readDesign(std::istream& in) {

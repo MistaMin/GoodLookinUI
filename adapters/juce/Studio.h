@@ -131,6 +131,9 @@ public:
     struct Entry { Item item; juce::Component* component; std::function<void(const Item&)> apply; std::string name; };
     std::function<void(juce::Component*)> onSelect;   // selection changed (for an outline)
     std::function<void()> onChanged;                  // an edit was applied (for persistence)
+    // Lets the host change what gets saved (for example, save a knob's base style instead of a section override).
+    std::function<Item(const Item&)> saveTransform;
+    void setStatus(const juce::String& t) { status.setText(t, juce::dontSendNotification); }
 
     void add(Item item, juce::Component& component, std::function<void(const Item&)> applyItem, std::string name = {}) {
         if (name.empty()) name = item.id;
@@ -142,7 +145,10 @@ public:
         for (size_t n = 0; n < entries.size(); ++n) if (entries[n].component == c) { selector.setSelectedId(int(n) + 1, juce::sendNotificationSync); return; }
     }
     juce::Component* selected() const { auto n = selector.getSelectedId() - 1; return n >= 0 && n < int(entries.size()) ? entries[size_t(n)].component : nullptr; }
-    std::string toCsv() const { std::ostringstream out; writeDesign(out, snapshot()); return out.str(); }
+    std::string toCsv() const {
+        auto items = snapshot(); if (saveTransform) for (auto& i : items) i = saveTransform(i);
+        std::ostringstream out; writeDesign(out, items); return out.str();
+    }
     bool fromCsv(const std::string& text) {
         try { std::istringstream in(text); restore(readDesign(in), false); return true; } catch (...) { return false; }
     }
@@ -241,9 +247,9 @@ private:
         chooser->launchAsync(flags | juce::FileBrowserComponent::canSelectFiles, [safe = juce::Component::SafePointer<Studio>(this), writing](const juce::FileChooser& c) {
             if (!safe || c.getResult() == juce::File{}) return;
             try {
-                if (writing) { if (!c.getResult().replaceWithText(safe->toCsv())) throw std::runtime_error("Save failed"); }
+                if (writing) { if (!c.getResult().replaceWithText(safe->toCsv(), false, false, "\n")) throw std::runtime_error("Save failed"); }
                 else { std::ifstream in(c.getResult().getFullPathName().toStdString()); auto items = readDesign(in); auto before = safe->snapshot(); safe->restore(items, true); safe->history.push_back(before); }
-                safe->say(writing ? "Knob design saved. Copy it over your project's design CSV and rebuild to bake it in." : "Knob design loaded");
+                safe->say(writing ? "Knob design saved to the chosen file." : "Knob design loaded");
             } catch (const std::exception& e) { safe->say(e.what()); }
         });
     }

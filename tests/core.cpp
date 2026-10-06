@@ -32,6 +32,14 @@ int main(){
   auto old=readDesign(legacyFile);assert(old.size()==1&&old[0].marks=="auto"&&old[0].style=="Brit");
   Item badMarks=i;badMarks.marks="blue";bool threw=false;try{validate(badMarks);}catch(...){threw=true;}assert(threw);
   std::stringstream wrongCols;wrongCols<<"GoodLookinUI design version 1\n"<<header<<"\na,a,Gain,Brit,#ffffff,1,2,70,76,10\n";threw=false;try{readDesign(wrongCols);}catch(...){threw=true;}assert(threw);}
+ // minimal quoting + the marks column is only written when used
+ {Item q=i;q.label="plain";std::stringstream a;writeDesign(a,{q});assert(a.str().find('"')==std::string::npos&&a.str().find("marks")==std::string::npos&&a.str().find(headerV1)!=std::string::npos);
+  assert(readDesign(a)==std::vector<Item>{q});
+  q.marks="dark";std::stringstream b;writeDesign(b,{q});assert(b.str().find("marks")!=std::string::npos&&readDesign(b)==std::vector<Item>{q});
+  q.marks="auto";q.label="a, \"b\"";std::stringstream c;writeDesign(c,{q});assert(c.str().find("\"a, \"\"b\"\"\"")!=std::string::npos&&readDesign(c)==std::vector<Item>{q});
+  // a file in the original format loads and is written back byte for byte
+  const std::string original=std::string("GoodLookinUI design version 1\n")+headerV1+"\nlcFreq,lcFreq,FREQ,console,#CBCBBC,12,52,150,98,10\nlcQ,lcQ,Q,console,#CBCBBC,12,152,150,98,10\n";
+  std::stringstream o(original);auto items=readDesign(o);std::stringstream back;writeDesign(back,items);assert(back.str()==original);}
  Motion m;for(int n=0;n<600;++n){m.step(1,1.0/60);assert(m.position>=0 && m.position<=1.00001);}assert(std::abs(m.position-1)<1e-8);
  std::cout<<"Design roundtrip, invalid input, duplicate IDs and motion checks passed\n";
 }

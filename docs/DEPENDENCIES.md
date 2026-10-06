@@ -1,6 +1,6 @@
 # Dependencies and licensing
 
-GoodLookinUI 0.2.2 is header-only C++20 source under the MIT License.
+GoodLookinUI 0.2.3 is header-only C++20 source under the MIT License.
 The design/CSV/motion core includes only C++ standard library headers.
 It does not require JUCE, a plugin SDK, a graphics runtime or a separate font.
 
