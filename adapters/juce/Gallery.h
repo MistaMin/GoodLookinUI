@@ -62,9 +62,11 @@ public:
     }
 
     // Renders one page to an image (for tests and documentation).
-    juce::Image renderPage(int p, int seconds = 3) {
-        setPage(p); for (int i = 0; i < seconds * 30; ++i) advance(1.0f / 30.0f);
-        return createComponentSnapshot(getLocalBounds(), true, 1.0f);
+    juce::Image renderPage(int p, int seconds = 3, float scale = 1.0f) {
+        setPage(p);
+        createComponentSnapshot(getLocalBounds(), true, 0.25f);          // one paint first, so the spectrogram history gets its size
+        for (int i = 0; i < seconds * 30; ++i) advance(1.0f / 30.0f);
+        return createComponentSnapshot(getLocalBounds(), true, scale);
     }
 
 private:
