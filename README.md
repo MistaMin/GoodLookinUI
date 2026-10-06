@@ -5,7 +5,12 @@ An independent C++20 toolkit for generated analogue hardware interfaces, startin
 ## Implemented
 
 - JUCE-free design model, strict versioned CSV reader/writer and critically damped display motion.
-- JUCE adapter that generates metal, bakelite, ivory and console knobs. The console style has fluted black grips, coloured moulded caps, recessed pointers, contact shadows and fixed calibration marks. Shared drawing helpers generate mechanical keys, panel finishes and screws.
+- 40 procedural knob classes (`knobStyles` in `Design.h`, drawn in `adapters/juce/Knobs.h`): console-style (Brit, N, A, FS, Rd, Pie, Chr...), material (Mtl, Wd, Mpl, Bk, Brz, Ivr...), pointer/lever (Ptr, Chk, Lvr, Tab...) and digital/neon (Seg, Vfd, Cyb, Arc, Brg, Neo, Hex, Yel, Led, Glw, Grd, Dsh). Legacy names `console`, `metal`, `bakelite`, `ivory` still load. Each knob has its own colour.
+- 40 plate looks (`faceplates` in `Design.h`) with brushed, wood-grain, scanline, hazard, grid, neon-edge and synth-horizon finishes.
+- Meters, lamps, keys and sliders: VU and PPM needles, LED ladders, flat bars, 80s-dash faces (bar wedge, vector mountains, orange LCD, arc gauge, colour columns) and cyberpunk faces (neon bars, hex ring, glitch scope, yellow chassis), 7-segment readouts, icon lamps and oval / console / neon / bar / chamfer / wedge / flat sliders (`adapters/juce/Meters.h`, `Retro.h`). `retro::glowEnabled` switches the retro parts between neon and clean flat drawing.
+- Spectrum analyser (JUCE-free, `include/goodlookinui/Spectrum.h`): wait-free sample ring, real-input FFT with a Hann window calibrated to dBFS, tilt, fall-off, peak hold and a log-axis column reducer; `adapters/juce/SpectrumRenderer.h` draws Standard, Multicolour and Bars looks with a colour per frequency range. The FFT runs on the UI thread only (about 0.1 ms for 16384 points).
+- Lock-free level tap (`include/goodlookinui/LevelTracker.h`) and an editable per-parameter look table (`include/goodlookinui/LookTable.h`).
+- Development-only inspectors (`Studio.h`, `LookStudio.h`, `SpectrumStudio.h`): knob style, label, colour wheel, font, position and size apply immediately; section looks and spectrum settings are saved per choice.
 - Development-only inspector: style, label, hex colour, font size, position, dimensions, save/load and undo.
 - HybridEQ integration retaining existing parameter IDs and attachments, with proportional scaling and a compiled design file.
 
@@ -48,7 +53,7 @@ cmake -S ../HybridEQ -B ../HybridEQ/build -DCMAKE_BUILD_TYPE=Debug
 cmake --build ../HybridEQ/build --target HybridEQ_Standalone
 ```
 
-HybridEQ includes AU on macOS and adds AAX only when the optional SDK is present. Windows/Linux and LV2 validation are later milestones. In a Debug build, click **Design** to open the inspector. Select a knob, edit its properties, and click **Apply**. Save the design over `HybridEQ/Designs/HybridEQ.csv` and rebuild to embed it in the release. Release builds compile out the inspector regardless of the editor option; Debug builds can disable it with `HYBRIDEQ_DESIGN_EDITOR=OFF`.
+HybridEQ includes AU on macOS and adds AAX only when the optional SDK is present. Windows/Linux and LV2 validation are later milestones. In a Debug build, click **Design** to open the inspector. Select a knob and edit its properties; changes apply immediately. Save the design over `HybridEQ/Designs/HybridEQ.csv` and rebuild to embed it in the release. Release builds compile out the inspector regardless of the editor option; Debug builds can disable it with `HYBRIDEQ_DESIGN_EDITOR=OFF`.
 
 ## Verify the core without JUCE or CMake
 
