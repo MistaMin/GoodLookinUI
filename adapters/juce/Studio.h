@@ -148,13 +148,16 @@ public:
     }
 
     Studio() {
-        for (auto* c : std::vector<juce::Component*>{&selector, &style, &chip, &label, &font, &x, &y, &w, &h, &save, &load, &undo, &status})
+        for (auto* c : std::vector<juce::Component*>{&selector, &style, &chip, &marksBox, &label, &font, &x, &y, &w, &h, &save, &load, &undo, &status})
             addAndMakeVisible(c);
         for (int n = 0; n < int(std::size(knobStyles)); ++n) style.addItem(juce::String(knobStyles[n].code) + "  -  " + knobStyles[n].description, n + 1);
         for (auto* t : {&label, &font, &x, &y, &w, &h}) {
             t->setSelectAllWhenFocused(true);
             t->onReturnKey = [this] { edit(); }; t->onFocusLost = [this] { edit(); };
         }
+        marksBox.addItem("Auto (follows plate)", 1); marksBox.addItem("Light marks (for dark plates)", 2); marksBox.addItem("Dark marks (for light plates)", 3);
+        marksBox.setTooltip("Colour of the printed scale marks and dots around the knob. Auto picks dark marks on a light plate and light marks on a dark plate.");
+        marksBox.onChange = [this] { edit(); };
         style.onChange = [this] { edit(); };
         chip.onChange = [this](juce::Colour c) { colourHex = "#" + c.toDisplayString(false).toStdString(); edit(); };
         save.setButtonText("Save knobs CSV"); load.setButtonText("Load knobs CSV"); undo.setButtonText("Undo");
@@ -180,7 +183,7 @@ public:
         };
         place("KNOB (name)", cap, top, selector, 250); place("STYLE", cap, top, style, 330);
         place("COLOUR (click for wheel)", cap, top, chip, 120); place("LABEL", cap, top, label, 120); place("FONT", cap, top, font, 50);
-        place("X", row2cap, row2, x, 56); place("Y", row2cap, row2, y, 56); place("W", row2cap, row2, w, 56); place("H", row2cap, row2, h, 56);
+        place("MARKS (on plate)", row2cap, row2, marksBox, 210); place("X", row2cap, row2, x, 56); place("Y", row2cap, row2, y, 56); place("W", row2cap, row2, w, 56); place("H", row2cap, row2, h, 56);
         row2.removeFromLeft(10);
         for (auto* b : {&undo, &save, &load}) b->setBounds(row2.removeFromLeft(b == &undo ? 70 : 130).reduced(2, 0));
         status.setBounds(area.reduced(0, 0));
@@ -188,7 +191,7 @@ public:
 private:
     std::vector<std::pair<juce::String, juce::Rectangle<int>>> captions;
     std::vector<Entry> entries; std::vector<std::vector<Item>> history; std::string colourHex = "#CE9435";
-    juce::ComboBox selector, style; ColourChip chip; juce::TextEditor label, font, x, y, w, h;
+    juce::ComboBox selector, style, marksBox; ColourChip chip; juce::TextEditor label, font, x, y, w, h;
     juce::TextButton save, load, undo; juce::Label status;
     std::unique_ptr<juce::FileChooser> chooser; bool busy = false;
     std::vector<Item> snapshot() const { std::vector<Item> out; for (auto& e : entries) out.push_back(e.item); return out; }
@@ -198,6 +201,7 @@ private:
         busy = true; auto& e = entries[size_t(n)]; auto& i = e.item;
         label.setText(i.label, false); colourHex = i.colour; chip.set(colour(i.colour));
         if (auto* st = findStyle(i.style)) style.setSelectedId(int(st - knobStyles) + 1, juce::dontSendNotification);
+        marksBox.setSelectedId(i.marks=="light" ? 2 : i.marks=="dark" ? 3 : 1, juce::dontSendNotification);
         font.setText(juce::String(i.fontSize), false); x.setText(juce::String(i.x), false); y.setText(juce::String(i.y), false);
         w.setText(juce::String(i.width), false); h.setText(juce::String(i.height), false);
         busy = false;
@@ -225,6 +229,7 @@ private:
             auto num = [](const juce::TextEditor& t) { auto s = t.getText().toStdString(); size_t end; float v = std::stof(s, &end); if (end != s.size()) throw std::runtime_error("Invalid number"); return v; };
             i.label = label.getText().toStdString(); i.colour = colourHex;
             if (auto sel = style.getSelectedId(); sel > 0) i.style = knobStyles[sel - 1].code;
+            i.marks = marksBox.getSelectedId() == 2 ? "light" : marksBox.getSelectedId() == 3 ? "dark" : "auto";
             i.fontSize = num(font); i.x = num(x); i.y = num(y); i.width = num(w); i.height = num(h); validate(i);
             if (i == entries[size_t(n)].item) return;                    // nothing changed
             auto before = snapshot(); restore(items, true); history.push_back(before);

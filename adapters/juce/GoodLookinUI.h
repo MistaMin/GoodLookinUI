@@ -93,12 +93,18 @@ inline void drawKey(juce::Graphics& g, juce::Rectangle<float> r, juce::Colour ba
     g.setColour(juce::Colour(0x66ffffff));g.drawHorizontalLine(int(face.getY()+1),face.getX()+2,face.getRight()-2);
     g.setColour(juce::Colour(0x44000000));g.drawRoundedRectangle(face,2,0.8f);
 }
-inline void drawConsoleKnob(juce::Graphics& g,juce::Rectangle<float> bounds,double proportion,const Item& item,bool active) {
+// True when marks should be dark. `backdrop` is the plate colour behind the knob (transparent = unknown, assume dark).
+inline bool useDarkMarks(const Item& item, juce::Colour backdrop) {
+    if(item.marks=="dark") return true;
+    if(item.marks=="light") return false;
+    return backdrop.getAlpha()>0 && backdrop.getPerceivedBrightness()>0.55f;
+}
+inline void drawConsoleKnob(juce::Graphics& g,juce::Rectangle<float> bounds,double proportion,const Item& item,bool active,bool darkMarks=false) {
     const float d=juce::jmin(bounds.getWidth(),bounds.getHeight());
     auto outer=juce::Rectangle<float>(d,d).withCentre(bounds.getCentre());
     auto c=outer.getCentre();const float r=d*0.5f;
     // Printed calibration marks remain fixed while the grip and pointer rotate.
-    g.setColour(juce::Colour(active?0xffc5cabf:0xff707a7b));
+    g.setColour(darkMarks?juce::Colour(active?0xff2a2f32:0xff7d8788):juce::Colour(active?0xffc5cabf:0xff707a7b));
     for(int n=0;n<13;++n){float a=(-0.8f+1.6f*float(n)/12)*juce::MathConstants<float>::pi;
         juce::Point<float> v(std::sin(a),-std::cos(a));
         g.drawLine({c+v*r*0.88f,c+v*r*(n%3==0?1.0f:0.95f)},n%3==0?1.2f:0.7f);}
@@ -130,15 +136,16 @@ inline void drawConsoleKnob(juce::Graphics& g,juce::Rectangle<float> bounds,doub
     g.setColour(juce::Colour(0xfff5f2df));g.drawLine({tail,tip},2.5f);
 }
 inline void drawKnob(juce::Graphics& g, juce::Rectangle<float> bounds,
-                     double proportion, const Item& item, bool active) {
+                     double proportion, const Item& item, bool active, juce::Colour backdrop = juce::Colour()) {
     const auto* info=findStyle(item.style);
     const auto style=info?info->style:KnobStyle::Brit;
-    if(style==KnobStyle::Brit) {drawConsoleKnob(g,bounds,proportion,item,active);return;}
+    const bool dark=useDarkMarks(item,backdrop);
+    if(style==KnobStyle::Brit) {drawConsoleKnob(g,bounds,proportion,item,active,dark);return;}
     const float d=juce::jmin(bounds.getWidth(),bounds.getHeight());
     const auto c=bounds.getCentre();
     if(!active) g.beginTransparencyLayer(0.55f);
     knobs::Ctx k{g,c,d*0.5f,float((proportion*1.6-0.8)*juce::MathConstants<double>::pi),
-                 active?colour(item.colour):juce::Colour(0xff697170)};
+                 active?colour(item.colour):juce::Colour(0xff697170), dark};
     knobs::draw(style,k);
     if(!active) g.endTransparencyLayer();
 }

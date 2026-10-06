@@ -20,7 +20,17 @@ struct Ctx {
     Point<float> c;
     float r, a;
     Colour accent;
+    bool darkMarks = false;   // printed marks are drawn dark (for light plates) instead of light
 };
+
+// Printed marks must stay readable on any plate. A mark colour that is light is swapped for a dark one when the
+// plate is light, and a dark one for a light one when the plate is dark; mid/coloured marks keep their hue.
+inline Colour markColour(const Ctx& k, Colour c) {
+    const float b = c.getPerceivedBrightness();
+    if (k.darkMarks && b > 0.45f) return Colour(0xff252a2d).withAlpha(c.getFloatAlpha());
+    if (!k.darkMarks && b < 0.30f) return Colour(0xffe6eaec).withAlpha(c.getFloatAlpha());
+    return c;
+}
 
 inline Point<float> dir(float a) { return {std::sin(a), -std::cos(a)}; }
 inline Point<float> at(const Ctx& k, float angle, float radius) { return k.c + dir(angle) * radius; }
@@ -43,7 +53,7 @@ inline void shadow(const Ctx& k, float radius) {
 }
 // Fixed printed marks over the knob's sweep.
 inline void dots(const Ctx& k, float radiusFrac, int n, float size, Colour col) {
-    k.g.setColour(col);
+    k.g.setColour(markColour(k, col));
     for (int i = 0; i < n; ++i) {
         auto p = at(k, (-0.8f + 1.6f * float(i) / float(n - 1)) * pi, k.r * radiusFrac);
         k.g.fillEllipse(p.x - size * 0.5f, p.y - size * 0.5f, size, size);

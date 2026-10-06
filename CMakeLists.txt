@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(GoodLookinUI VERSION 0.2.1 LANGUAGES CXX)
+project(GoodLookinUI VERSION 0.2.2 LANGUAGES CXX)
 add_library(goodlookinui INTERFACE)
 target_compile_features(goodlookinui INTERFACE cxx_std_20)
 target_include_directories(goodlookinui INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)

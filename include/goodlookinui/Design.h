@@ -132,8 +132,12 @@ struct Item {
     std::string id, parameter, label, style = "metal";
     std::string colour = "#CE9435";
     float x=0, y=0, width=70, height=76, fontSize=10;
+    // Printed marks (scale ticks and dots around a knob): "auto" picks dark marks on a light plate and light
+    // marks on a dark plate, "light" and "dark" force one. Stored as an optional 11th CSV column.
+    std::string marks = "auto";
     bool operator==(const Item&) const = default;
 };
+inline bool validMarks(const std::string& m) { return m=="auto" || m=="light" || m=="dark"; }
 inline void validate(const Item& i) {
     if (i.id.empty() || i.id.find_first_of("\r\n") != std::string::npos)
         throw std::runtime_error("Control needs a valid ID");
@@ -142,6 +146,7 @@ inline void validate(const Item& i) {
     if (i.colour.size()!=7 || i.colour[0]!='#' ||
         i.colour.find_first_not_of("0123456789abcdefABCDEF",1)!=std::string::npos)
         throw std::runtime_error("Colour must be #RRGGBB");
+    if (!validMarks(i.marks)) throw std::runtime_error("Marks must be auto, light or dark");
     for (float v : {i.x,i.y,i.width,i.height,i.fontSize})
         if (!std::isfinite(v)) throw std::runtime_error("Geometry must be finite");
     if (i.width<20 || i.height<20 || i.width>4096 || i.height>4096 ||
@@ -167,26 +172,27 @@ inline std::vector<std::string> fields(const std::string& line) {
     if(quoted) throw std::runtime_error("Unclosed CSV quote");
     out.push_back(value); return out;
 }
-inline constexpr auto header="id,parameter,label,style,colour,x,y,width,height,font size";
+inline constexpr auto headerV1="id,parameter,label,style,colour,x,y,width,height,font size";   // files saved before `marks` existed
+inline constexpr auto header="id,parameter,label,style,colour,x,y,width,height,font size,marks";
 inline void writeDesign(std::ostream& out, const std::vector<Item>& items) {
     out << std::setprecision(std::numeric_limits<float>::max_digits10);
     out << "GoodLookinUI design version 1\n" << header << '\n';
     std::set<std::string> ids;
     for(const auto& i:items) {validate(i); if(!ids.insert(i.id).second) throw std::runtime_error("Duplicate ID");
         out<<quote(i.id)<<','<<quote(i.parameter)<<','<<quote(i.label)<<','<<quote(i.style)<<','<<quote(i.colour)
-           <<','<<i.x<<','<<i.y<<','<<i.width<<','<<i.height<<','<<i.fontSize<<'\n';}
+           <<','<<i.x<<','<<i.y<<','<<i.width<<','<<i.height<<','<<i.fontSize<<','<<quote(i.marks)<<'\n';}
     if(!out) throw std::runtime_error("Could not write design");
 }
 inline std::vector<Item> readDesign(std::istream& in) {
     std::string line; auto next=[&]{ std::getline(in,line); if(!line.empty()&&line.back()=='\r') line.pop_back(); };
     next(); if(line!="GoodLookinUI design version 1" && line!="HardwareUI design version 1") throw std::runtime_error("Unsupported design version");
-    next(); if(line!=header) throw std::runtime_error("Invalid design columns");
+    next(); const bool hasMarks=(line==header); if(!hasMarks && line!=headerV1) throw std::runtime_error("Invalid design columns");
     std::vector<Item> result; std::set<std::string> ids;
     while(std::getline(in,line)) {if(!line.empty()&&line.back()=='\r')line.pop_back();if(line.empty())continue;
-        auto f=fields(line);if(f.size()!=10)throw std::runtime_error("Expected ten columns");
+        auto f=fields(line);if(f.size()!=(hasMarks?11u:10u))throw std::runtime_error(hasMarks?"Expected eleven columns":"Expected ten columns");
         auto number=[&](int n){std::size_t end=0;float v=std::stof(f[n],&end);
             if(end!=f[n].size())throw std::runtime_error("Invalid number");return v;};
-        Item i{f[0],f[1],f[2],f[3],f[4],number(5),number(6),number(7),number(8),number(9)};
+        Item i{f[0],f[1],f[2],f[3],f[4],number(5),number(6),number(7),number(8),number(9),hasMarks?f[10]:std::string("auto")};
         validate(i);if(!ids.insert(i.id).second)throw std::runtime_error("Duplicate ID");result.push_back(i);
     }
     if(in.bad())throw std::runtime_error("Could not read design");return result;
