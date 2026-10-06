@@ -104,10 +104,10 @@ private:
     std::vector<float> cosT, sinT, wr, wi, zr, zi;
 };
 
-// ---- analyser ---------------------------------------------------------------
 inline constexpr int fftSizes[] = {512, 1024, 2048, 4096, 8192, 16384};
 inline constexpr float floorDb = -120.0f;
 
+// ---- analyser ---------------------------------------------------------------
 class Analyser {
 public:
     void configure(int fftSize, double sampleRate) {
@@ -194,6 +194,64 @@ inline void toColumns(const float* db, int numBins, double sampleRate, int cols,
         }
         f0 = f1;
     }
+}
+
+// Fractional-octave smoothing on display columns. Columns are log-spaced, so a fixed-width kernel here is exactly
+// symmetric in log frequency (a lone tone stays centred; smoothing in the bin domain would drag it toward the
+// window's lower edge). Triangular kernel from two box passes of power, O(cols). denominator: 1, 3 (1/3 octave), 6, 12, 24.
+// `scratch` must hold `cols` floats and may not alias in/out.
+inline void smoothColumns(const float* in, float* out, int cols, float octavesSpanned, int denominator, float* scratch, double* prefix /* cols + 1 */) {
+    const float perOctave = float(cols) / octavesSpanned;
+    const int w = std::max(1, int(std::lround(perOctave / float(denominator) * 0.5f)));      // each box pass covers half the total width
+    if (w <= 1) { std::copy(in, in + cols, out); return; }
+    auto boxPass = [&](const float* src, float* dst) {
+        prefix[0] = 0.0; for (int i = 0; i < cols; ++i) prefix[i + 1] = prefix[i] + std::pow(10.0, double(src[i]) / 10.0);
+        const int r = w / 2;
+        for (int i = 0; i < cols; ++i) {
+            const int lo = std::max(0, i - r), hi = std::min(cols - 1, i + r);
+            const double mean = (prefix[hi + 1] - prefix[lo]) / double(hi - lo + 1);
+            dst[i] = mean > 1.0e-12 ? float(10.0 * std::log10(mean)) : floorDb;
+        }
+    };
+    boxPass(in, scratch); boxPass(scratch, out);
+}
+
+// ---- spectrogram history -----------------------------------------------------
+// Fixed-size rolling history of rows (one row = one analysis frame reduced to `cols` columns), stored as
+// 8-bit levels (0 = floor, 255 = ceiling). Newest row is row(0); writes never allocate.
+class SpectrogramHistory {
+public:
+    void configure(int columns, int rows) { cols = columns; nrows = rows; data.assign(std::size_t(columns) * std::size_t(rows), 0); head = 0; count = 0; }
+    int columns() const { return cols; }
+    int rows() const { return nrows; }
+    int filled() const { return count; }
+    void push(const float* db, float floorLevelDb, float ceilLevelDb) {
+        head = (head + nrows - 1) % nrows;                             // new row goes where the oldest was
+        auto* r = &data[std::size_t(head) * std::size_t(cols)];
+        const float scale = 255.0f / (ceilLevelDb - floorLevelDb);
+        for (int c = 0; c < cols; ++c) r[c] = std::uint8_t(std::lround(std::clamp((db[c] - floorLevelDb) * scale, 0.0f, 255.0f)));
+        count = std::min(count + 1, nrows);
+    }
+    // age 0 = newest
+    const std::uint8_t* row(int age) const { return &data[std::size_t((head + age) % nrows) * std::size_t(cols)]; }
+private:
+    int cols = 0, nrows = 0, head = 0, count = 0; std::vector<std::uint8_t> data;
+};
+
+// Colour maps for 0..255 levels. Heat runs black > blue > magenta > orange > yellow > white.
+inline std::uint32_t heatColour(std::uint8_t v) {
+    struct Stop { float p; int r, g, b; };
+    static constexpr Stop stops[] = {{0.0f, 0, 0, 0}, {0.18f, 10, 20, 90}, {0.40f, 140, 20, 150}, {0.62f, 245, 90, 30}, {0.82f, 255, 215, 60}, {1.0f, 255, 255, 235}};
+    const float t = float(v) / 255.0f; int i = 0; while (i < 4 && t > stops[i + 1].p) ++i;
+    const float u = (t - stops[i].p) / (stops[i + 1].p - stops[i].p);
+    auto mix = [&](int a, int b) { return std::uint32_t(std::lround(float(a) + (float(b) - float(a)) * std::clamp(u, 0.0f, 1.0f))); };
+    return 0xff000000u | (mix(stops[i].r, stops[i + 1].r) << 16) | (mix(stops[i].g, stops[i + 1].g) << 8) | mix(stops[i].b, stops[i + 1].b);
+}
+// Shades a base colour by level: black at 0, the colour at about 70%, brightening to white-ish at 255.
+inline std::uint32_t shadeColour(std::uint32_t base, std::uint8_t v) {
+    const float t = float(v) / 255.0f; auto ch = [&](int sh) { const float c = float((base >> sh) & 255);
+        const float lit = t < 0.7f ? c * (t / 0.7f) : c + (255.0f - c) * ((t - 0.7f) / 0.3f) * 0.6f; return std::uint32_t(std::lround(std::clamp(lit, 0.0f, 255.0f))); };
+    return 0xff000000u | (ch(16) << 16) | (ch(8) << 8) | ch(0);
 }
 
 // ---- frequency ranges and colours ---------------------------------------------

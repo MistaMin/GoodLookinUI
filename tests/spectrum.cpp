@@ -125,5 +125,34 @@ int main() {
         std::cout << "16384-point analysis: " << ms << " ms per frame (" << ms * 30 / 10.0 << " % of one core at 30 fps)\n";
         assert(ms < 2.0);
     }
+    // 12) fractional-octave smoothing on columns: flat stays flat, ripple shrinks, a tone stays centred, power is kept
+    {
+        const int cols = 1000; const float octaves = float(std::log2(1500.0));        // 20 Hz .. 30 kHz
+        std::vector<float> in(std::size_t(cols), -40.0f), out(std::size_t(cols), 0.0f), scratch(std::size_t(cols), 0.0f); std::vector<double> prefix(std::size_t(cols) + 1, 0.0);
+        smoothColumns(in.data(), out.data(), cols, octaves, 3, scratch.data(), prefix.data());
+        for (int i = 0; i < cols; ++i) assert(near(out[std::size_t(i)], -40.0, 0.01));
+        std::mt19937 rng(11); std::normal_distribution<float> g(0.0f, 4.0f); std::vector<float> noisy(std::size_t(cols), 0.0f); for (auto& v : noisy) v = -50.0f + g(rng);
+        auto spread = [&](const std::vector<float>& v) { double m = 0, q = 0; int c = 0; for (int k = 100; k < 900; ++k) { m += v[std::size_t(k)]; ++c; } m /= c; for (int k = 100; k < 900; ++k) q += (v[std::size_t(k)] - m) * (v[std::size_t(k)] - m); return std::sqrt(q / c); };
+        std::vector<float> o1(std::size_t(cols), 0.0f), o3(std::size_t(cols), 0.0f), o24(std::size_t(cols), 0.0f);
+        smoothColumns(noisy.data(), o1.data(), cols, octaves, 1, scratch.data(), prefix.data()); smoothColumns(noisy.data(), o3.data(), cols, octaves, 3, scratch.data(), prefix.data()); smoothColumns(noisy.data(), o24.data(), cols, octaves, 24, scratch.data(), prefix.data());
+        assert(spread(noisy) > 3.0 && spread(o24) < spread(noisy) && spread(o3) < spread(o24) && spread(o1) < spread(o3));    // wider window -> smoother
+        std::vector<float> tone(std::size_t(cols), -100.0f); tone[600] = -6.0f;
+        smoothColumns(tone.data(), out.data(), cols, octaves, 3, scratch.data(), prefix.data());
+        const int pk = int(std::max_element(out.begin(), out.end()) - out.begin()); assert(std::abs(pk - 600) <= 1);          // stays centred
+        assert(near(out[std::size_t(600 - 40)], out[std::size_t(600 + 40)], 0.5));                                           // and symmetric in log frequency
+        double pIn = 0, pOut = 0; for (int i = 0; i < cols; ++i) { pIn += std::pow(10.0, tone[std::size_t(i)] / 10.0); pOut += std::pow(10.0, out[std::size_t(i)] / 10.0); }
+        assert(std::fabs(10 * std::log10(pOut / pIn)) < 0.2);                                                                // power conserved
+        smoothColumns(tone.data(), out.data(), cols, octaves, 1000, scratch.data(), prefix.data()); assert(out[600] == tone[600]);   // too narrow: pass-through
+    }
+    // 13) spectrogram history + colour maps
+    {
+        SpectrogramHistory h; h.configure(4, 3); float r1[4] = {-90, -60, -30, 0}, r2[4] = {0, 0, 0, 0}, r3[4] = {-120, -120, -120, -120};
+        h.push(r1, -90.0f, 0.0f); assert(h.filled() == 1 && h.row(0)[0] == 0 && h.row(0)[3] == 255 && std::abs(int(h.row(0)[1]) - 85) <= 1);
+        h.push(r2, -90.0f, 0.0f); assert(h.row(0)[0] == 255 && h.row(1)[3] == 255 && h.row(1)[0] == 0);    // newest first
+        h.push(r3, -90.0f, 0.0f); h.push(r2, -90.0f, 0.0f); assert(h.filled() == 3 && h.row(0)[0] == 255 && h.row(1)[0] == 0 && h.row(2)[0] == 255);   // wraps, oldest dropped
+        assert(heatColour(0) == 0xff000000u && heatColour(255) != 0xff000000u && (heatColour(255) & 0xffu) > 200);
+        int prev = -1; for (int v = 0; v <= 255; v += 5) { const auto c = heatColour(std::uint8_t(v)); const int lum = int((c >> 16) & 255) + int((c >> 8) & 255) + int(c & 255); assert(lum >= prev - 40); prev = lum; }   // brightens with level
+        assert(shadeColour(0xffff0000u, 0) == 0xff000000u && (shadeColour(0xffff0000u, 178) >> 16 & 255) > 240 && shadeColour(0xff3040ffu, 255) != 0xff3040ffu);
+    }
     std::cout << "spectrum: FFT vs DFT, calibration, leakage, bin location, noise level, tilt, ballistics, ring, columns, colours, speed OK\n";
 }
