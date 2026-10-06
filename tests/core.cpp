@@ -26,6 +26,12 @@ int main(){
       if(s.find(w)!=std::string::npos)return true;return false;};
   for(const auto& f:faceplates){assert(codes.insert(f.code).second);assert(f.finish>=0&&f.finish<=7);assert(!banned(f.code)&&!banned(f.name));}
   for(const auto& k:knobStyles){assert(!banned(k.code)&&!banned(k.description));}}
+ // printed-mark option: round trip, legacy 10-column files still load as "auto", bad values rejected
+ {Item mk=i;for(auto m:{"auto","light","dark"}){mk.marks=m;std::stringstream f;writeDesign(f,{mk});assert(readDesign(f)==std::vector<Item>{mk});}
+  std::stringstream legacyFile;legacyFile<<"GoodLookinUI design version 1\n"<<headerV1<<"\na,a,Gain,Brit,#ffffff,1,2,70,76,10\n";
+  auto old=readDesign(legacyFile);assert(old.size()==1&&old[0].marks=="auto"&&old[0].style=="Brit");
+  Item badMarks=i;badMarks.marks="blue";bool threw=false;try{validate(badMarks);}catch(...){threw=true;}assert(threw);
+  std::stringstream wrongCols;wrongCols<<"GoodLookinUI design version 1\n"<<header<<"\na,a,Gain,Brit,#ffffff,1,2,70,76,10\n";threw=false;try{readDesign(wrongCols);}catch(...){threw=true;}assert(threw);}
  Motion m;for(int n=0;n<600;++n){m.step(1,1.0/60);assert(m.position>=0 && m.position<=1.00001);}assert(std::abs(m.position-1)<1e-8);
  std::cout<<"Design roundtrip, invalid input, duplicate IDs and motion checks passed\n";
 }

@@ -36,6 +36,7 @@ Everything below is generated in code (no bitmaps) and rendered by the gallery a
 - Fractional-octave smoothing (on display columns, so peaks stay centred) and a spectrogram waterfall with heat-map or per-range colours.
 - A gallery window (`adapters/juce/Gallery.h`, example app in `examples/gallery`, `--selftest` renders and checks every page) that shows every part with its code name.
 - Lock-free level tap (`include/goodlookinui/LevelTracker.h`) and an editable per-parameter look table (`include/goodlookinui/LookTable.h`).
+- Printed knob marks follow the plate: `marks` = auto (dark marks on light plates, light on dark), light or dark, saved as an optional 11th CSV column (older 10-column files still load) and set from the inspector.
 - Development-only inspectors (`Studio.h`, `LookStudio.h`, `SpectrumStudio.h`): knob style, label, colour wheel, font, position and size apply immediately; section looks and spectrum settings are saved per choice.
 - Development-only inspector: style, label, hex colour, font size, position, dimensions, save/load and undo.
 - Integration helpers that keep a host plugin's parameter IDs and attachments unchanged, with proportional scaling and a compiled design file.
