@@ -30,7 +30,7 @@ public:
             g.strokePath(seg, juce::PathStrokeType(ringW(), juce::PathStrokeType::curved, juce::PathStrokeType::butt));
         }
         auto sq = square();
-        g.setGradientFill(juce::ColourGradient(juce::Colours::white, sq.getX(), 0, juce::Colour::fromHSV(h, 1, 1, 1), sq.getRight(), 0, false));
+        g.setGradientFill(juce::ColourGradient(juce::Colours::white, sq.getX(), 0, juce::Colour::fromHSV(h, 1.0f, 1.0f, 1.0f), sq.getRight(), 0, false));
         g.fillRect(sq);
         g.setGradientFill(juce::ColourGradient(juce::Colour(0x00000000), 0, sq.getY(), juce::Colours::black, 0, sq.getBottom(), false));
         g.fillRect(sq);
