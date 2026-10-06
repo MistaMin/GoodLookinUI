@@ -2,7 +2,7 @@
 
 ## Product requirements
 
-Audience: developers of audio utilities and effects, plus non-programming interface testers. First adopter: HybridEQ. A rack/console aesthetic combines generated hardware surfaces with modern analysis displays. Instruments and synths are outside current scope.
+Audience: developers of audio utilities and effects, plus non-programming interface testers. The first adopter was a plugin that lives in its own repository. A rack/console aesthetic combines generated hardware surfaces with modern analysis displays. Instruments and synths are outside current scope.
 
 Controls and panels must be generated in code without requiring designer-produced image assets. The finished toolkit needs realistic knob, switch, illumination, menu, panel and meter animations. Parameter changes must reach DSP immediately even when their graphical representation is animated.
 
@@ -16,7 +16,7 @@ Target systems: Apple Silicon/macOS, Windows 11, Ubuntu Studio and Arch Linux. P
 
 ## 0.1 — current foundation
 
-Core design model, CSV validation, motion, procedural knob renderer, knob inspector and HybridEQ adapter integration. Existing EQ display and other controls retained. Compile-time editor removal and baked design support.
+Core design model, CSV validation, motion, procedural knob renderer, knob inspector and a host-plugin adapter. Existing EQ display and other controls retained. Compile-time editor removal and baked design support.
 
 Verified on Apple Silicon/macOS: linked Debug/Release standalone, VST3 and AU builds; standalone launch and initial visual inspection; live label/colour edits, undo, CSV save/load; editor absent from the Release UI. Acceptance remaining: visual resize checks at 860×620, 980×760 and 1600×1100, audio/automation checks in a DAW, and Windows/Linux builds.
 

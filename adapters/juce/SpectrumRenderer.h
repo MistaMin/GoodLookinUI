@@ -8,7 +8,7 @@
 
 namespace goodlookinui::juce_adapter {
 
-// How the analyser looks and behaves. Saved with the project (see PluginEditor).
+// How the analyser looks and behaves. Saved with the host project (the host stores toString()).
 struct SpectrumSettings {
     enum class Style { Standard, Multicolour, Bars };
     bool on = true;

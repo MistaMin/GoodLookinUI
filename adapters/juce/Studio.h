@@ -238,7 +238,7 @@ private:
             try {
                 if (writing) { if (!c.getResult().replaceWithText(safe->toCsv())) throw std::runtime_error("Save failed"); }
                 else { std::ifstream in(c.getResult().getFullPathName().toStdString()); auto items = readDesign(in); auto before = safe->snapshot(); safe->restore(items, true); safe->history.push_back(before); }
-                safe->say(writing ? "Knob design saved. Copy it over Designs/HybridEQ.csv and rebuild to bake it in." : "Knob design loaded");
+                safe->say(writing ? "Knob design saved. Copy it over your project's design CSV and rebuild to bake it in." : "Knob design loaded");
             } catch (const std::exception& e) { safe->say(e.what()); }
         });
     }
