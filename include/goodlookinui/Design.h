@@ -20,7 +20,7 @@ namespace goodlookinui {
 // for material styles (Mtl, Wd, Bk, Pie, Snk, Slv, Ptr) it is the indicator colour.
 // Digital styles (Seg, Vfd, Cyb) and Dm/Sq use it as the lit / glow / cap colour.
 enum class KnobStyle { Brit, N, A, FS, Mtl, Wd, Bk, Pie, Snk, Slv, Rd, Ptr, Dm, Sq, Seg, Vfd, Cyb,
-                       Fat, Pag, Lvr, Tab, Wh, Knl, Skt, Rib, Chr, Arc, Brg, Neo, Hex, Yel, Key, Brz, Chk, Ivr, Mpl, Led, Dbl, Mini, Tl, Glw, Grd, Dsh, Mic, Ebn, Wnt };
+                       Fat, Pag, Lvr, Tab, Wh, Knl, Skt, Rib, Chr, Arc, Brg, Neo, Hex, Yel, Key, Brz, Chk, Ivr, Mpl, Led, Dbl, Mini, Tl, Glw, Grd, Dsh, Mic, Ebn, Wnt, Rck };
 struct StyleInfo { KnobStyle style; const char* code; const char* legacy; const char* description; };
 inline constexpr StyleInfo knobStyles[] = {
     {KnobStyle::Brit,"Brit","console","Black fluted grip, large coloured flat cap, recessed white pointer"},
@@ -69,6 +69,7 @@ inline constexpr StyleInfo knobStyles[] = {
     {KnobStyle::Mic, "Mic", "",       "Translucent crown pointer knob in the item colour with a white indicator, dotted ring"},
     {KnobStyle::Ebn, "Ebn", "",       "Ebony wood knob with a brass cap and an inlaid pointer line"},
     {KnobStyle::Wnt, "Wnt", "",       "Walnut wood top inside a chrome collar, pointer line"},
+    {KnobStyle::Rck, "Rck", "",       "Small black rack-unit knob: fluted skirt, satin top, soft contact shadow, bright pointer line"},
 };
 // Accepts a style code or a legacy name from older design files.
 inline const StyleInfo* findStyle(const std::string& name) {

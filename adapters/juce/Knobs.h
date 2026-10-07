@@ -849,6 +849,39 @@ inline void drawWnt(const Ctx& k) {
     line(k, W * 0.12f, W * 0.94f, k.r * 0.065f, k.accent.brighter(0.4f), k.a);
 }
 
+inline void drawRck(const Ctx& k) {
+    auto& g = k.g;
+    const float R = k.r * 0.86f;
+    // soft contact shadow, a little heavier than the other styles so the knob sits on the panel
+    for (int n = 6; n > 0; --n) {
+        g.setColour(Colour(0x12000000));
+        const float e = R + float(n) * 0.9f;
+        g.fillEllipse(k.c.x - e + 0.8f, k.c.y - e + 2.6f, e * 2, e * 2);
+    }
+    disc(k, R, Colour(0xff2b2c2e), Colour(0xff050506));
+    // fine flutes round the skirt; they turn with the knob like real knurling
+    flutes(k, R * 0.80f, R * 0.995f, 72, Colour(0xff030304), Colour(0xff4a4c50), 0.9f);
+    rim(k, R, Colour(0xff000000), 1.0f);
+    // satin top: radial sheen plus very faint concentric brushing
+    const float T = R * 0.78f;
+    g.setGradientFill(juce::ColourGradient(Colour(0xff4a4b4f), k.c.x - T * 0.35f, k.c.y - T * 0.45f, Colour(0xff0d0d0f), k.c.x + T * 0.7f, k.c.y + T * 0.8f, true));
+    g.fillEllipse(k.c.x - T, k.c.y - T, T * 2, T * 2);
+    for (int i = 1; i <= 7; ++i) {
+        g.setColour(Colour(i % 2 ? 0x0cffffff : 0x0c000000));
+        const float e = T * float(i) / 7.5f;
+        g.drawEllipse(k.c.x - e, k.c.y - e, e * 2, e * 2, 0.6f);
+    }
+    rim(k, T, Colour(0x55000000), 1.0f);
+    g.setColour(Colour(0x22ffffff));
+    g.drawEllipse(k.c.x - T + 0.8f, k.c.y - T + 0.8f, (T - 0.8f) * 2, (T - 0.8f) * 2, 0.7f);
+    // pointer: a bright line from near the middle to the skirt, with a shadow cut
+    const auto col = k.accent.getPerceivedBrightness() > 0.2f ? k.accent : Colour(0xfff2f2f0);
+    g.setColour(Colour(0x99000000));
+    g.drawLine({at(k, k.a, R * 0.16f) + Point<float>(0.7f, 0.9f), at(k, k.a, R * 0.96f) + Point<float>(0.7f, 0.9f)}, k.r * 0.115f);
+    g.setColour(col);
+    g.drawLine({at(k, k.a, R * 0.16f), at(k, k.a, R * 0.96f)}, k.r * 0.085f);
+}
+
 using Drawer = void (*)(const Ctx&);
 // Order must match goodlookinui::KnobStyle.
 inline constexpr Drawer drawers[] = {
@@ -856,7 +889,7 @@ inline constexpr Drawer drawers[] = {
     drawPtr, drawDm, drawSq, drawSeg, drawVfd, drawCyb,
     drawFat, drawPag, drawLvr, drawTab, drawWh, drawKnl, drawSkt, drawRib, drawChr, drawArc, drawBrg, drawNeo,
     drawHex, drawYel, drawKey, drawBrz, drawChk, drawIvr, drawMpl, drawLed, drawDbl, drawMini, drawTl,
-    drawGlw, drawGrd, drawDsh, drawMic, drawEbn, drawWnt};
+    drawGlw, drawGrd, drawDsh, drawMic, drawEbn, drawWnt, drawRck};
 static_assert(std::size(drawers) == std::size(goodlookinui::knobStyles), "one drawer per knob style");
 inline void draw(goodlookinui::KnobStyle style, const Ctx& k) {
     if (auto* d = drawers[int(style)]) d(k);
