@@ -7,6 +7,9 @@
 #include <cmath>
 #include <cstdint>
 #include <vector>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 // JUCE-free spectrum analysis.
 //   SampleRing     audio thread -> UI thread mono capture (wait-free push).
