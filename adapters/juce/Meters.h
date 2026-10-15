@@ -35,13 +35,19 @@ enum class VuFace { Cream, Black };
 
 inline void drawVuMeter(Graphics& g, Rectangle<float> r, float needle, VuFace face) {
     const bool cream = face == VuFace::Cream;
-    g.setColour(Colour(0xff0b0c0d)); g.fillRoundedRectangle(r, 4);
-    auto f = r.reduced(3);
-    g.setGradientFill(cream ? juce::ColourGradient(Colour(0xfff7ecc4), f.getX(), f.getY(), Colour(0xffd9c88b), f.getX(), f.getBottom(), false)
-                            : juce::ColourGradient(Colour(0xff2b2519), f.getX(), f.getY(), Colour(0xff0d0b08), f.getX(), f.getBottom(), false));
-    g.fillRoundedRectangle(f, 2);
+    // 1. Recessed meter cutout well in front panel
+    g.setColour(Colour(0xff08090a)); g.fillRoundedRectangle(r, 4.0f);
+    g.setColour(Colour(0x35ffffff)); g.drawHorizontalLine(int(r.getBottom() - 1.0f), r.getX() + 2, r.getRight() - 2);
+    auto f = r.reduced(3.5f);
+    g.setGradientFill(cream ? juce::ColourGradient(Colour(0xfff8eece), f.getX(), f.getY(), Colour(0xffd4c07e), f.getX(), f.getBottom(), false)
+                            : juce::ColourGradient(Colour(0xff2d261a), f.getX(), f.getY(), Colour(0xff0a0907), f.getX(), f.getBottom(), false));
+    g.fillRoundedRectangle(f, 2.5f);
     g.saveState();
-    juce::Path clip; clip.addRoundedRectangle(f, 2.0f); g.reduceClipRegion(clip, {});
+    juce::Path clip; clip.addRoundedRectangle(f, 2.5f); g.reduceClipRegion(clip, {});
+
+    // Inner cutout shadow along top of dial window
+    g.setGradientFill(juce::ColourGradient(Colour(0x55000000), 0, f.getY(), Colour(0x00000000), 0, f.getY() + 9.0f, false));
+    g.fillRect(f.withHeight(9.0f));
 
     const float h = f.getHeight(), cx = f.getCentreX();
     const float R = h * 1.55f, arcTop = f.getY() + h * 0.30f, py = arcTop + R;
@@ -74,23 +80,47 @@ inline void drawVuMeter(Graphics& g, Rectangle<float> r, float needle, VuFace fa
     g.setColour(ink); g.setFont(juce::FontOptions(h * 0.30f, juce::Font::bold));
     g.drawText("VU", f.removeFromBottom(h * 0.40f).withTrimmedRight(h * 0.15f), juce::Justification::centredRight);
 
-    // needle with a soft shadow
+    // needle with a realistic drop shadow
     const float na = angleFor(juce::jlimit(0.0f, 1.0f, needle));
-    g.setColour(Colour(0x44000000)); g.drawLine({pt(na, R * 0.45f) + Point<float>(1.5f, 1.5f), pt(na, R * 1.01f) + Point<float>(1.5f, 1.5f)}, 1.6f);
-    g.setColour(cream ? Colour(0xff0f0d0a) : Colour(0xffff8a26)); g.drawLine({pt(na, R * 0.45f), pt(na, R * 1.01f)}, 1.5f);
-    // glass sheen
-    g.setGradientFill(juce::ColourGradient(Colour(0x30ffffff), 0, r.getY(), Colour(0x00ffffff), 0, r.getCentreY(), false));
-    g.fillRect(r.withHeight(r.getHeight() * 0.5f));
+    g.setColour(Colour(0x40000000));
+    g.drawLine({pt(na, R * 0.45f) + Point<float>(1.8f, 2.0f), pt(na, R * 1.01f) + Point<float>(1.8f, 2.0f)}, 1.8f);
+    g.setColour(cream ? Colour(0xff0e0c09) : Colour(0xffff8e2b));
+    g.drawLine({pt(na, R * 0.45f), pt(na, R * 1.01f)}, 1.6f);
+
+    // Machined center pivot bearing hub
+    auto hub = Rectangle<float>(h * 0.16f, h * 0.16f).withCentre({cx, py - R * 0.45f});
+    g.setColour(Colour(0x66000000)); g.fillEllipse(hub.translated(0.8f, 1.4f));
+    g.setGradientFill(juce::ColourGradient(Colour(0xff687074), hub.getX(), hub.getY(), Colour(0xff121517), hub.getRight(), hub.getBottom(), false));
+    g.fillEllipse(hub);
+    g.setColour(Colour(0x55ffffff)); g.drawEllipse(hub, 0.7f);
+
+    // Curved cylindrical glass lens specular reflection across the upper dial
+    juce::Path glass;
+    glass.startNewSubPath(f.getX(), f.getY());
+    glass.lineTo(f.getRight(), f.getY());
+    glass.lineTo(f.getRight(), f.getY() + h * 0.36f);
+    glass.quadraticTo(cx, f.getY() + h * 0.50f, f.getX(), f.getY() + h * 0.36f);
+    glass.closeSubPath();
+    g.setGradientFill(juce::ColourGradient(Colour(0x28ffffff), cx, f.getY(), Colour(0x00ffffff), cx, f.getY() + h * 0.50f, false));
+    g.fillPath(glass);
+
     g.restoreState();
-    g.setColour(Colour(0xff050505)); g.drawRoundedRectangle(r, 4, 1.5f);
+    g.setColour(Colour(0xff040506)); g.drawRoundedRectangle(r, 4, 1.5f);
 }
 
 // ---- PPM needle meter (broadcast-style 1..7 scale, 4 = reference) -------------
 inline void drawPpm(Graphics& g, Rectangle<float> r, float level01) {
-    g.setColour(Colour(0xff0b0c0d)); g.fillRoundedRectangle(r, 4);
-    auto f = r.reduced(3);
-    g.setGradientFill(juce::ColourGradient(Colour(0xfff2f2ee), f.getX(), f.getY(), Colour(0xffcfd1cb), f.getX(), f.getBottom(), false)); g.fillRoundedRectangle(f, 2);
-    g.saveState(); juce::Path clip; clip.addRoundedRectangle(f, 2.0f); g.reduceClipRegion(clip, {});
+    // 1. Recessed meter cutout well
+    g.setColour(Colour(0xff08090a)); g.fillRoundedRectangle(r, 4.0f);
+    g.setColour(Colour(0x35ffffff)); g.drawHorizontalLine(int(r.getBottom() - 1.0f), r.getX() + 2, r.getRight() - 2);
+    auto f = r.reduced(3.5f);
+    g.setGradientFill(juce::ColourGradient(Colour(0xfff4f4f0), f.getX(), f.getY(), Colour(0xffcbcdc6), f.getX(), f.getBottom(), false)); g.fillRoundedRectangle(f, 2.5f);
+    g.saveState(); juce::Path clip; clip.addRoundedRectangle(f, 2.5f); g.reduceClipRegion(clip, {});
+
+    // Inner cutout shadow along top
+    g.setGradientFill(juce::ColourGradient(Colour(0x55000000), 0, f.getY(), Colour(0x00000000), 0, f.getY() + 9.0f, false));
+    g.fillRect(f.withHeight(9.0f));
+
     const float h = f.getHeight(), cx = f.getCentreX(), R = h * 1.55f, py = f.getY() + h * 0.30f + R;
     const float span = juce::jmin(0.62f, (f.getWidth() * 0.43f) / R);
     auto ang = [&](float p) { return -span + 2.0f * span * p; };
@@ -106,11 +136,29 @@ inline void drawPpm(Graphics& g, Rectangle<float> r, float level01) {
     }
     g.setColour(Colour(0xff1b1d1c)); g.setFont(juce::FontOptions(h * 0.28f, juce::Font::bold));
     g.drawText("PPM", f.removeFromBottom(h * 0.38f).withTrimmedRight(h * 0.15f), juce::Justification::centredRight);
+
     const float na = ang(juce::jlimit(0.0f, 1.0f, level01));
-    g.setColour(Colour(0x44000000)); g.drawLine({pt(na, R * 0.45f) + Point<float>(1.5f, 1.5f), pt(na, R * 1.01f) + Point<float>(1.5f, 1.5f)}, 1.6f);
-    g.setColour(Colour(0xff0d0d0b)); g.drawLine({pt(na, R * 0.45f), pt(na, R * 1.01f)}, 1.5f);
-    g.setGradientFill(juce::ColourGradient(Colour(0x30ffffff), 0, r.getY(), Colour(0x00ffffff), 0, r.getCentreY(), false)); g.fillRect(r.withHeight(r.getHeight() * 0.5f));
-    g.restoreState(); g.setColour(Colour(0xff050505)); g.drawRoundedRectangle(r, 4, 1.5f);
+    g.setColour(Colour(0x40000000)); g.drawLine({pt(na, R * 0.45f) + Point<float>(1.8f, 2.0f), pt(na, R * 1.01f) + Point<float>(1.8f, 2.0f)}, 1.8f);
+    g.setColour(Colour(0xff0d0d0b)); g.drawLine({pt(na, R * 0.45f), pt(na, R * 1.01f)}, 1.6f);
+
+    // Pivot bearing hub
+    auto hub = Rectangle<float>(h * 0.16f, h * 0.16f).withCentre({cx, py - R * 0.45f});
+    g.setColour(Colour(0x66000000)); g.fillEllipse(hub.translated(0.8f, 1.4f));
+    g.setGradientFill(juce::ColourGradient(Colour(0xff687074), hub.getX(), hub.getY(), Colour(0xff121517), hub.getRight(), hub.getBottom(), false));
+    g.fillEllipse(hub);
+    g.setColour(Colour(0x55ffffff)); g.drawEllipse(hub, 0.7f);
+
+    // Curved glass lens reflection
+    juce::Path glass;
+    glass.startNewSubPath(f.getX(), f.getY());
+    glass.lineTo(f.getRight(), f.getY());
+    glass.lineTo(f.getRight(), f.getY() + h * 0.36f);
+    glass.quadraticTo(cx, f.getY() + h * 0.50f, f.getX(), f.getY() + h * 0.36f);
+    glass.closeSubPath();
+    g.setGradientFill(juce::ColourGradient(Colour(0x28ffffff), cx, f.getY(), Colour(0x00ffffff), cx, f.getY() + h * 0.50f, false));
+    g.fillPath(glass);
+
+    g.restoreState(); g.setColour(Colour(0xff040506)); g.drawRoundedRectangle(r, 4, 1.5f);
 }
 
 // ---- LED ladder -----------------------------------------------------------

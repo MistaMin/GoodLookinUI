@@ -3,6 +3,7 @@
 #pragma once
 #include <goodlookinui/Design.h>
 #include "Knobs.h"
+#include "KnobsFlat.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <fstream>
 #include <functional>
@@ -13,10 +14,17 @@ inline juce::Colour colour(const std::string& hex) {
 }
 // Console hardware is generated at the component's current scale; no bitmaps.
 inline void drawScrew(juce::Graphics& g, float x, float y) {
-    auto r=juce::Rectangle<float>(8,8).withCentre({x,y});
-    g.setColour(juce::Colour(0xff0d1113));g.fillEllipse(r.expanded(1));
-    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff7c8589),x-3,y-3,juce::Colour(0xff252b2e),x+3,y+3,false));g.fillEllipse(r);
-    g.setColour(juce::Colour(0xff121719));g.drawLine(x-2,y+1,x+2,y-1,1.3f);
+    auto r = juce::Rectangle<float>(8.5f, 8.5f).withCentre({x, y});
+    // Countersunk well shadow (recessed into plate)
+    g.setColour(juce::Colour(0xff090c0e)); g.fillEllipse(r.expanded(1.2f));
+    g.setColour(juce::Colour(0x28ffffff)); g.drawEllipse(r.expanded(1.2f), 0.7f);
+    // Beveled screw head with directional light
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff9aa4a8), x - 2.5f, y - 2.5f, juce::Colour(0xff22272a), x + 2.5f, y + 2.5f, false));
+    g.fillEllipse(r);
+    g.setColour(juce::Colour(0x55ffffff)); g.drawEllipse(r, 0.6f);
+    // Slotted groove with illuminated wall
+    g.setColour(juce::Colour(0xff080b0c)); g.drawLine(x - 2.4f, y + 1.2f, x + 2.4f, y - 1.2f, 1.4f);
+    g.setColour(juce::Colour(0x44ffffff)); g.drawLine(x - 2.4f, y + 0.5f, x + 2.4f, y - 1.9f, 0.7f);
 }
 // Surface detail for plate finishes (see Faceplate::finish). Uses translucent
 // black/white so it works over any plate colour.
@@ -76,22 +84,38 @@ inline void drawFinish(juce::Graphics& g, juce::Rectangle<float> r, int finish) 
     g.restoreState();
 }
 inline void drawPanel(juce::Graphics& g, juce::Rectangle<float> r,
-                      juce::Colour top=juce::Colour(0xff394247), juce::Colour bottom=juce::Colour(0xff2a3034), int finish=0) {
-    g.setColour(juce::Colour(0x88000000));g.fillRoundedRectangle(r.translated(0,2),3);
-    g.setGradientFill(juce::ColourGradient(top,r.getX(),r.getY(),
-        bottom,r.getRight(),r.getBottom(),false));g.fillRoundedRectangle(r,2);
-    drawFinish(g,r,finish);
-    g.setColour(juce::Colour(0xff101618));g.drawRoundedRectangle(r,2,1);
-    g.setColour(juce::Colour(0x22ffffff));g.drawHorizontalLine(int(r.getY()+1),r.getX()+2,r.getRight()-2);
+                      juce::Colour top = juce::Colour(0xff394247), juce::Colour bottom = juce::Colour(0xff2a3034), int finish = 0) {
+    // 1. Soft chassis drop shadow
+    g.setColour(juce::Colour(0x66000000)); g.fillRoundedRectangle(r.translated(1.0f, 2.5f), 3.5f);
+    // 2. Main panel plate
+    g.setGradientFill(juce::ColourGradient(top, r.getX(), r.getY(), bottom, r.getX(), r.getBottom(), false));
+    g.fillRoundedRectangle(r, 2.5f);
+    drawFinish(g, r, finish);
+    // 3. Front plate anodized bevel edges (3D plate thickness)
+    g.setColour(juce::Colour(0x40ffffff)); g.drawHorizontalLine(int(r.getY() + 0.5f), r.getX() + 2, r.getRight() - 2);
+    g.setColour(juce::Colour(0x25ffffff)); g.drawVerticalLine(int(r.getX() + 0.5f), r.getY() + 2, r.getBottom() - 2);
+    g.setColour(juce::Colour(0x80000000)); g.drawHorizontalLine(int(r.getBottom() - 1.0f), r.getX() + 2, r.getRight() - 2);
+    g.setColour(juce::Colour(0x60000000)); g.drawVerticalLine(int(r.getRight() - 1.0f), r.getY() + 2, r.getBottom() - 2);
+    g.setColour(juce::Colour(0xff0c0f11)); g.drawRoundedRectangle(r, 2.5f, 1.0f);
 }
 inline void drawKey(juce::Graphics& g, juce::Rectangle<float> r, juce::Colour base, bool down) {
-    g.setColour(juce::Colour(0xff131719));g.fillRoundedRectangle(r.expanded(2),3);
-    auto face=r.translated(0,down?1.5f:0);
-    g.setColour(juce::Colour(0xff080c0d));g.fillRoundedRectangle(face.translated(0,2),2);
-    g.setGradientFill(juce::ColourGradient(base.brighter(0.18f),face.getX(),face.getY(),
-        base.darker(down?0.30f:0.16f),face.getRight(),face.getBottom(),false));g.fillRoundedRectangle(face,2);
-    g.setColour(juce::Colour(0x66ffffff));g.drawHorizontalLine(int(face.getY()+1),face.getX()+2,face.getRight()-2);
-    g.setColour(juce::Colour(0x44000000));g.drawRoundedRectangle(face,2,0.8f);
+    // Bezel well socket: deep black socket cavity that houses the key
+    g.setColour(juce::Colour(0xff060809)); g.fillRoundedRectangle(r.expanded(2.5f), 3.5f);
+    g.setColour(juce::Colour(0x35ffffff)); g.drawRoundedRectangle(r.expanded(2.5f), 3.5f, 0.7f);
+    auto face = r.translated(0, down ? 2.0f : 0.0f);
+    // Shadow cast into the socket when key is unpressed
+    if (!down) {
+        g.setColour(juce::Colour(0x99000000));
+        g.fillRoundedRectangle(face.translated(0, 2.5f), 2.0f);
+    }
+    // Keycap top and chamfered body
+    g.setGradientFill(juce::ColourGradient(base.brighter(down ? 0.05f : 0.28f), face.getX(), face.getY(),
+                                           base.darker(down ? 0.45f : 0.22f), face.getRight(), face.getBottom(), false));
+    g.fillRoundedRectangle(face, 2.0f);
+    // Top highlight rim on keycap
+    g.setColour(juce::Colour(0x77ffffff)); g.drawHorizontalLine(int(face.getY() + 0.8f), face.getX() + 2, face.getRight() - 2);
+    g.setColour(juce::Colour(0x55000000)); g.drawHorizontalLine(int(face.getBottom() - 0.8f), face.getX() + 2, face.getRight() - 2);
+    g.setColour(juce::Colour(0x44000000)); g.drawRoundedRectangle(face, 2.0f, 0.8f);
 }
 // True when marks should be dark. `backdrop` is the plate colour behind the knob (transparent = unknown, assume dark).
 inline bool useDarkMarks(const Item& item, juce::Colour backdrop) {
@@ -102,8 +126,123 @@ inline bool useDarkMarks(const Item& item, juce::Colour backdrop) {
 inline void drawConsoleKnob(juce::Graphics& g,juce::Rectangle<float> bounds,double proportion,const Item& item,bool active,bool darkMarks=false) {
     const float d=juce::jmin(bounds.getWidth(),bounds.getHeight());
     auto outer=juce::Rectangle<float>(d,d).withCentre(bounds.getCentre());
+    const auto c=outer.getCentre();
+    const float r=d*0.5f;
+
+    // Printed calibration marks remain fixed on the faceplate
+    g.setColour(darkMarks?juce::Colour(active?0xff2a2f32:0xff7d8788):juce::Colour(active?0xffc5cabf:0xff707a7b));
+    for(int n=0;n<13;++n){
+        float a=(-0.8f+1.6f*float(n)/12)*juce::MathConstants<float>::pi;
+        juce::Point<float> v(std::sin(a),-std::cos(a));
+        g.drawLine({c+v*r*0.88f,c+v*r*(n%3==0?1.0f:0.95f)},n%3==0?1.3f:0.8f);
+    }
+
+    // 3D Perspective: Knob assembly centered on c
+    const float rSkirt = d * 0.38f;
+
+    // 1. Hardware Drop Shadow: Tight contact AO under the skirt perimeter + subtle soft studio drop shadow
+    for (int n = 4; n > 0; --n) {
+        g.setColour(juce::Colour(0x38000000));
+        const float e = rSkirt + float(n) * 0.45f;
+        g.fillEllipse(c.x - e, c.y - e + 0.6f, e * 2, e * 2);
+    }
+    const float shDx = rSkirt * 0.05f, shDy = rSkirt * 0.08f;
+    for (int n = 6; n > 0; --n) {
+        g.setColour(juce::Colour(0x0e000000));
+        const float sx = shDx * (float(n) / 6.0f), sy = shDy * (float(n) / 6.0f);
+        const float e = rSkirt + float(n) * 0.8f;
+        g.fillEllipse(c.x - e + sx, c.y - e + sy, e * 2, e * 2);
+    }
+
+    // 2. Base Skirt Beveled Disc
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff555b5f), c.x - rSkirt, c.y - rSkirt,
+                                           juce::Colour(0xff0c0e10), c.x + rSkirt, c.y + rSkirt, false));
+    g.fillEllipse(c.x - rSkirt, c.y - rSkirt, rSkirt * 2, rSkirt * 2);
+    // Skirt chamfer rim
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0x75ffffff), c.x - rSkirt * 0.707f, c.y - rSkirt * 0.707f,
+                                           juce::Colour(0xaa000000), c.x + rSkirt * 0.707f, c.y + rSkirt * 0.707f, false));
+    g.drawEllipse(c.x - rSkirt, c.y - rSkirt, rSkirt * 2, rSkirt * 2, 1.2f);
+
+    // 3. Knurled Grip Ring
+    const float a=float((proportion*1.6-0.8)*juce::MathConstants<double>::pi);
+    const float rGrip = rSkirt * 0.90f;
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff2d3134), c.x - rGrip, c.y - rGrip,
+                                           juce::Colour(0xff090b0d), c.x + rGrip, c.y + rGrip, false));
+    g.fillEllipse(c.x - rGrip, c.y - rGrip, rGrip * 2, rGrip * 2);
+
+    // 3D Knurling teeth across the grip circumference
+    for (int n = 0; n < 32; ++n) {
+        float t = a + float(n) * juce::MathConstants<float>::twoPi / 32.0f;
+        juce::Point<float> v(std::sin(t), -std::cos(t));
+        const float light = juce::jlimit(0.0f, 1.0f, 0.5f - 0.38f * (v.x + v.y));
+        const auto p0 = c + v * rGrip * 0.72f;
+        const auto p1 = c + v * rGrip * 0.98f;
+        // Shadow groove
+        g.setColour(juce::Colour(0x88050607));
+        g.drawLine({p0.translated(0.4f, 0.6f), p1.translated(0.4f, 0.6f)}, 2.2f);
+        // Tooth body with directional key-light
+        g.setColour(juce::Colour(0xff08090b).interpolatedWith(juce::Colour(0xff7a8286), light));
+        g.drawLine({p0, p1}, 1.8f);
+        // Specular highlight on tooth crest facing key light
+        if (light > 0.38f) {
+            g.setColour(juce::Colour(0x55ffffff));
+            g.drawLine({p0 - v * 0.25f, p1 - v * 0.25f}, 0.7f);
+        }
+    }
+
+    // 4. Spun Aluminum Collar Recess separating grip from cap
+    const float rCollar = rGrip * 0.76f;
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff181b1d), c.x - rCollar, c.y - rCollar,
+                                           juce::Colour(0xff3a4044), c.x + rCollar, c.y + rCollar, false));
+    g.fillEllipse(c.x - rCollar, c.y - rCollar, rCollar * 2, rCollar * 2);
+    g.setColour(juce::Colour(0x66000000));
+    g.drawEllipse(c.x - rCollar, c.y - rCollar, rCollar * 2, rCollar * 2, 1.0f);
+    // Concentric lathe grooves on the collar
+    g.setColour(juce::Colour(0x22ffffff));
+    g.drawEllipse(c.x - rCollar * 0.92f, c.y - rCollar * 0.92f, rCollar * 1.84f, rCollar * 1.84f, 0.5f);
+
+    // 5. Molded Colored Cap (classic RAF blue-grey, maroon, or dark grey Neve cap)
+    const float rCap = rCollar * 0.88f;
+    const auto base = active ? colour(item.colour) : juce::Colour(0xff697170);
+    // Beveled outer cap rim
+    g.setGradientFill(juce::ColourGradient(base.brighter(0.40f), c.x - rCap * 0.707f, c.y - rCap * 0.707f,
+                                           base.darker(0.60f), c.x + rCap * 0.707f, c.y + rCap * 0.707f, false));
+    g.fillEllipse(c.x - rCap, c.y - rCap, rCap * 2, rCap * 2);
+    g.setGradientFill(juce::ColourGradient(base.brighter(0.65f), c.x - rCap * 0.707f, c.y - rCap * 0.707f,
+                                           base.darker(0.85f), c.x + rCap * 0.707f, c.y + rCap * 0.707f, false));
+    g.drawEllipse(c.x - rCap, c.y - rCap, rCap * 2, rCap * 2, 1.0f);
+
+    // Dished cap face (concave center with spherical falloff)
+    const float rFace = rCap * 0.82f;
+    g.setGradientFill(juce::ColourGradient(base.brighter(0.18f), c.x - rFace * 0.4f, c.y - rFace * 0.5f,
+                                           base.darker(0.35f), c.x + rFace * 0.6f, c.y + rFace * 0.7f, false));
+    g.fillEllipse(c.x - rFace, c.y - rFace, rFace * 2, rFace * 2);
+    // Inner bevel lip and shadow
+    g.setColour(juce::Colour(0x40ffffff));
+    g.drawEllipse(c.x - rFace, c.y - rFace, rFace * 2, rFace * 2, 0.7f);
+    g.setColour(juce::Colour(0x44000000));
+    g.drawEllipse(c.x - rFace + 0.6f, c.y - rFace + 0.6f, (rFace - 0.6f) * 2, (rFace - 0.6f) * 2, 0.6f);
+
+    // Specular gloss arc on top surface
+    auto glossR = juce::Rectangle<float>(rFace * 1.5f, rFace * 0.75f).withCentre({c.x - rFace * 0.18f, c.y - rFace * 0.32f});
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0x38ffffff), glossR.getX(), glossR.getY(), juce::Colour(0x00ffffff), glossR.getX(), glossR.getBottom(), false));
+    g.fillEllipse(glossR);
+
+    // 6. Recessed White Pointer Slot
+    juce::Point<float> v(std::sin(a), -std::cos(a));
+    auto tip = c + v * rFace * 0.94f;
+    auto tail = c + v * rFace * 0.15f;
+    // Subtle milled groove shadow
+    g.setColour(juce::Colour(0x66000000));
+    g.drawLine({tail.translated(0.4f, 0.6f), tip.translated(0.4f, 0.6f)}, 3.0f);
+    // Clean off-white enamel infill
+    g.setColour(juce::Colour(0xfff8f6ed));
+    g.drawLine({tail, tip}, 2.4f);
+}
+inline void drawConsoleKnobFlat(juce::Graphics& g,juce::Rectangle<float> bounds,double proportion,const Item& item,bool active,bool darkMarks=false) {
+    const float d=juce::jmin(bounds.getWidth(),bounds.getHeight());
+    auto outer=juce::Rectangle<float>(d,d).withCentre(bounds.getCentre());
     auto c=outer.getCentre();const float r=d*0.5f;
-    // Printed calibration marks remain fixed while the grip and pointer rotate.
     g.setColour(darkMarks?juce::Colour(active?0xff2a2f32:0xff7d8788):juce::Colour(active?0xffc5cabf:0xff707a7b));
     for(int n=0;n<13;++n){float a=(-0.8f+1.6f*float(n)/12)*juce::MathConstants<float>::pi;
         juce::Point<float> v(std::sin(a),-std::cos(a));
@@ -129,24 +268,47 @@ inline void drawConsoleKnob(juce::Graphics& g,juce::Rectangle<float> bounds,doub
     g.setGradientFill(juce::ColourGradient(base.brighter(0.08f),face.getX(),face.getY(),
         base.darker(0.10f),face.getRight(),face.getBottom(),false));g.fillEllipse(face);
     g.setColour(juce::Colour(0x27ffffff));g.drawEllipse(face,0.7f);
-    // Recessed white pointer cut into the coloured moulded cap.
     juce::Point<float> v(std::sin(a),-std::cos(a));
     auto tip=c+v*face.getWidth()*0.43f;auto tail=c+v*face.getWidth()*0.12f;
     g.setColour(juce::Colour(0x77000000));g.drawLine({tail.translated(0.7f,0.7f),tip.translated(0.7f,0.7f)},3.4f);
     g.setColour(juce::Colour(0xfff5f2df));g.drawLine({tail,tip},2.5f);
 }
+
+// Global toggle for flat (classic 2D vector) rendering mode vs 3D hardware mode.
+// Can also be selected per knob by passing "flat" in item.style (e.g. "flat_Brit", "flat_A", "flat_Mtl").
+inline bool useFlatKnobs = false;
+
 inline void drawKnob(juce::Graphics& g, juce::Rectangle<float> bounds,
                      double proportion, const Item& item, bool active, juce::Colour backdrop = juce::Colour()) {
-    const auto* info=findStyle(item.style);
+    std::string styleCode = item.style;
+    bool isFlat = useFlatKnobs;
+    if (styleCode.rfind("flat_", 0) == 0) {
+        isFlat = true;
+        styleCode = styleCode.substr(5);
+    } else if (styleCode == "flat") {
+        isFlat = true;
+        styleCode = "Brit";
+    }
+    const auto* info=findStyle(styleCode);
     const auto style=info?info->style:KnobStyle::Brit;
     const bool dark=useDarkMarks(item,backdrop);
-    if(style==KnobStyle::Brit) {drawConsoleKnob(g,bounds,proportion,item,active,dark);return;}
+    if(style==KnobStyle::Brit) {
+        if (isFlat) drawConsoleKnobFlat(g,bounds,proportion,item,active,dark);
+        else drawConsoleKnob(g,bounds,proportion,item,active,dark);
+        return;
+    }
     const float d=juce::jmin(bounds.getWidth(),bounds.getHeight());
     const auto c=bounds.getCentre();
     if(!active) g.beginTransparencyLayer(0.55f);
-    knobs::Ctx k{g,c,d*0.5f,float((proportion*1.6-0.8)*juce::MathConstants<double>::pi),
-                 active?colour(item.colour):juce::Colour(0xff697170), dark};
-    knobs::draw(style,k);
+    if (isFlat) {
+        knobs_flat::Ctx k{g,c,d*0.5f,float((proportion*1.6-0.8)*juce::MathConstants<double>::pi),
+                          active?colour(item.colour):juce::Colour(0xff697170), dark};
+        knobs_flat::draw(style,k);
+    } else {
+        knobs::Ctx k{g,c,d*0.5f,float((proportion*1.6-0.8)*juce::MathConstants<double>::pi),
+                     active?colour(item.colour):juce::Colour(0xff697170), dark};
+        knobs::draw(style,k);
+    }
     if(!active) g.endTransparencyLayer();
 }
 

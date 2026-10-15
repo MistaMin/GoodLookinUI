@@ -85,65 +85,89 @@ inline constexpr const char* pushNames[] = {"Square key", "Round chrome", "Illum
 inline constexpr int numPushStyles = 8;
 
 inline void drawPush(Graphics& g, Rectangle<float> r, const juce::String& text, PushStyle style, Colour colour, bool lit, bool down) {
-    const float off = down ? 1.5f : 0.0f;
+    const float off = down ? 2.0f : 0.0f;
     auto face = r.translated(0, off);
     auto label = [&](Rectangle<float> a, Colour c) { g.setColour(c); g.setFont(juce::FontOptions(juce::jmin(a.getHeight() * 0.42f, 13.0f), juce::Font::bold)); g.drawText(text, a, juce::Justification::centred); };
     switch (style) {
         case PushStyle::Square: {
-            g.setColour(Colour(0xff0e1112)); g.fillRoundedRectangle(r.expanded(1.5f), 3);
-            g.setColour(Colour(0xff060808)); g.fillRoundedRectangle(face.translated(0, 2), 2);
+            // Bezel well socket
+            g.setColour(Colour(0xff08090a)); g.fillRoundedRectangle(r.expanded(2.0f), 3.5f);
+            g.setColour(Colour(0x30ffffff)); g.drawRoundedRectangle(r.expanded(2.0f), 3.5f, 0.7f);
+            if (!down) {
+                g.setColour(Colour(0x88000000));
+                g.fillRoundedRectangle(face.translated(0, 2.5f), 2.5f);
+            }
             const Colour base = lit ? colour : Colour(0xffd6d9c8);
-            g.setGradientFill(juce::ColourGradient(base.brighter(0.2f), face.getX(), face.getY(), base.darker(down ? 0.35f : 0.18f), face.getRight(), face.getBottom(), false)); g.fillRoundedRectangle(face, 2);
-            g.setColour(Colour(0x66ffffff)); g.drawHorizontalLine(int(face.getY() + 1), face.getX() + 2, face.getRight() - 2);
-            label(face, lit ? Colour(0xff101214) : Colour(0xff26312e)); break; }
+            g.setGradientFill(juce::ColourGradient(base.brighter(down ? 0.05f : 0.28f), face.getX(), face.getY(), base.darker(down ? 0.40f : 0.20f), face.getRight(), face.getBottom(), false));
+            g.fillRoundedRectangle(face, 2.0f);
+            g.setColour(Colour(0x77ffffff)); g.drawHorizontalLine(int(face.getY() + 1), face.getX() + 2, face.getRight() - 2);
+            g.setColour(Colour(0x55000000)); g.drawHorizontalLine(int(face.getBottom() - 1), face.getX() + 2, face.getRight() - 2);
+            g.setColour(Colour(0x40000000)); g.drawRoundedRectangle(face, 2.0f, 0.8f);
+            label(face, lit ? Colour(0xff0d0f11) : Colour(0xff222a28)); break; }
         case PushStyle::Round: {
             const float d = juce::jmin(r.getWidth(), r.getHeight()); auto cir = Rectangle<float>(d, d).withCentre(r.getCentre());
-            g.setColour(Colour(0xff0a0b0c)); g.fillEllipse(cir.expanded(2));
-            g.setGradientFill(juce::ColourGradient(Colour(0xfff6f8f8), cir.getX(), cir.getY(), Colour(0xff5e6569), cir.getRight(), cir.getBottom(), false)); g.fillEllipse(cir);
+            g.setColour(Colour(0xff08090a)); g.fillEllipse(cir.expanded(2.5f));
+            g.setGradientFill(juce::ColourGradient(Colour(0xffffffff), cir.getX() - d * 0.2f, cir.getY() - d * 0.2f, Colour(0xff454c50), cir.getRight(), cir.getBottom(), false)); g.fillEllipse(cir);
+            g.setColour(Colour(0x40000000)); g.drawEllipse(cir, 1.0f);
             auto inner = cir.reduced(d * 0.12f).translated(0, off);
-            g.setGradientFill(juce::ColourGradient(Colour(0xffe2e6e8), inner.getX(), inner.getY(), Colour(0xff80888c), inner.getRight(), inner.getBottom(), false)); g.fillEllipse(inner);
-            if (lit) { g.setColour(colour.withAlpha(0.35f)); g.drawEllipse(cir.reduced(d * 0.03f), d * 0.07f); g.setColour(colour); g.drawEllipse(cir.reduced(d * 0.07f), d * 0.03f); }
-            label(inner, Colour(0xff222629)); break; }
+            if (!down) { g.setColour(Colour(0x77000000)); g.fillEllipse(inner.translated(0, 2.0f)); }
+            g.setGradientFill(juce::ColourGradient(Colour(0xfff0f3f4), inner.getX(), inner.getY(), Colour(0xff757d82), inner.getRight(), inner.getBottom(), false)); g.fillEllipse(inner);
+            g.setColour(Colour(0x88ffffff)); g.drawEllipse(inner.reduced(0.8f), 0.7f);
+            if (lit) { g.setColour(colour.withAlpha(0.38f)); g.drawEllipse(cir.reduced(d * 0.03f), d * 0.07f); g.setColour(colour); g.drawEllipse(cir.reduced(d * 0.07f), d * 0.03f); }
+            label(inner, Colour(0xff1d2124)); break; }
         case PushStyle::Dome: {
             const float d = juce::jmin(r.getWidth(), r.getHeight()); auto cir = Rectangle<float>(d, d).withCentre(r.getCentre()).translated(0, off * 0.5f);
-            g.setColour(Colour(0xff060708)); g.fillEllipse(cir.expanded(2.5f));
-            if (lit) { g.setColour(colour.withAlpha(0.28f)); g.fillEllipse(cir.expanded(d * 0.25f)); }
+            g.setColour(Colour(0xff050607)); g.fillEllipse(cir.expanded(3.0f));
+            g.setColour(Colour(0x25ffffff)); g.drawEllipse(cir.expanded(3.0f), 0.8f);
+            if (lit) { g.setColour(colour.withAlpha(0.32f)); g.fillEllipse(cir.expanded(d * 0.26f)); }
             const Colour base = lit ? colour : colour.darker(0.85f);
-            g.setGradientFill(juce::ColourGradient(base.brighter(lit ? 0.9f : 0.2f), cir.getX() + d * 0.3f, cir.getY() + d * 0.25f, base.darker(0.5f), cir.getRight(), cir.getBottom(), true)); g.fillEllipse(cir);
-            g.setColour(Colour(0x77ffffff)); g.fillEllipse(Rectangle<float>(d * 0.5f, d * 0.26f).withCentre({cir.getCentreX() - d * 0.06f, cir.getY() + d * 0.3f}));
-            label(cir, lit ? Colour(0xff101214) : Colour(0xffe9e9e2)); break; }
+            g.setGradientFill(juce::ColourGradient(base.brighter(lit ? 0.95f : 0.25f), cir.getX() + d * 0.30f, cir.getY() + d * 0.22f, base.darker(0.55f), cir.getRight(), cir.getBottom(), true)); g.fillEllipse(cir);
+            g.setColour(Colour(0x88ffffff)); g.fillEllipse(Rectangle<float>(d * 0.52f, d * 0.28f).withCentre({cir.getCentreX() - d * 0.06f, cir.getY() + d * 0.30f}));
+            label(cir, lit ? Colour(0xff0f1113) : Colour(0xffeaeae4)); break; }
         case PushStyle::Chamfer: {
             auto path = retro::chamfer(face.reduced(1), face.getHeight() * 0.28f);
-            g.setColour(Colour(0x66000000)); g.fillPath(path, juce::AffineTransform::translation(0, 2));
-            g.setGradientFill(juce::ColourGradient((lit ? colour : Colour(0xff3b4147)).brighter(0.15f), 0, face.getY(), (lit ? colour : Colour(0xff1c2024)).darker(0.4f), 0, face.getBottom(), false)); g.fillPath(path);
-            g.setColour(colour.withAlpha(lit ? 0.9f : 0.35f)); g.strokePath(path, juce::PathStrokeType(1.2f));
-            label(face, lit ? Colour(0xff0b0d0f) : Colour(0xffd8dcde)); break; }
+            g.setColour(Colour(0xff070809)); g.fillPath(retro::chamfer(r.expanded(1.5f), r.getHeight() * 0.28f));
+            if (!down) { g.setColour(Colour(0x88000000)); g.fillPath(path, juce::AffineTransform::translation(0, 2.5f)); }
+            const Colour base = lit ? colour : Colour(0xff33383e);
+            g.setGradientFill(juce::ColourGradient(base.brighter(down ? 0.05f : 0.25f), 0, face.getY(), base.darker(0.45f), 0, face.getBottom(), false)); g.fillPath(path);
+            g.setColour(colour.withAlpha(lit ? 0.95f : 0.35f)); g.strokePath(path, juce::PathStrokeType(1.2f));
+            label(face, lit ? Colour(0xff090b0d) : Colour(0xffdbe0e2)); break; }
         case PushStyle::Neon: {
             auto path = retro::chamfer(face.reduced(2), face.getHeight() * 0.3f);
-            g.setColour(Colour(0xff04080b)); g.fillPath(path);
-            if (lit) { g.setColour(colour.withAlpha(0.18f)); g.fillPath(path); }
+            g.setColour(Colour(0xff030608)); g.fillPath(path);
+            if (lit) { g.setColour(colour.withAlpha(0.20f)); g.fillPath(path); }
             retro::glowStroke(g, path, lit ? colour : colour.withAlpha(0.4f), 1.3f, lit ? 1.0f : 0.15f);
-            label(face, lit ? colour.brighter(0.8f) : colour.withAlpha(0.6f)); break; }
+            label(face, lit ? colour.brighter(0.85f) : colour.withAlpha(0.6f)); break; }
         case PushStyle::Flat: {
-            g.setColour(lit ? colour : Colour(0xff2b3033)); g.fillRoundedRectangle(face, 2);
-            g.setColour(lit ? colour.darker(0.5f) : Colour(0xff0d0f10)); g.drawRoundedRectangle(face, 2, 1.0f);
-            label(face, lit ? Colour(0xff0d0f10) : Colour(0xffb6bdc0)); break; }
+            // Housing frame with inner depth
+            g.setColour(Colour(0xff08090a)); g.fillRoundedRectangle(r.expanded(1.5f), 2.5f);
+            if (!down) { g.setColour(Colour(0x66000000)); g.fillRoundedRectangle(face.translated(0, 2), 2); }
+            const Colour base = lit ? colour : Colour(0xff2b3033);
+            g.setGradientFill(juce::ColourGradient(base.brighter(down ? 0.05f : 0.20f), face.getX(), face.getY(), base.darker(0.35f), face.getRight(), face.getBottom(), false));
+            g.fillRoundedRectangle(face, 2);
+            g.setColour(lit ? colour.brighter(0.4f) : Colour(0x35ffffff)); g.drawHorizontalLine(int(face.getY() + 0.8f), face.getX() + 1, face.getRight() - 1);
+            g.setColour(Colour(0xff090a0b)); g.drawRoundedRectangle(face, 2, 0.8f);
+            label(face, lit ? Colour(0xff0a0c0e) : Colour(0xffb8bfc2)); break; }
         case PushStyle::Arcade: {
             const float d = juce::jmin(r.getWidth(), r.getHeight()); auto cir = Rectangle<float>(d, d).withCentre(r.getCentre());
-            g.setColour(Colour(0xff17191b)); g.fillEllipse(cir.expanded(1));
-            g.setGradientFill(juce::ColourGradient(Colour(0xff404448), cir.getX(), cir.getY(), Colour(0xff0b0c0d), cir.getRight(), cir.getBottom(), false)); g.fillEllipse(cir);
+            g.setColour(Colour(0xff0f1113)); g.fillEllipse(cir.expanded(2));
+            g.setGradientFill(juce::ColourGradient(Colour(0xff4a5056), cir.getX(), cir.getY(), Colour(0xff090a0b), cir.getRight(), cir.getBottom(), false)); g.fillEllipse(cir);
             auto cap = cir.reduced(d * 0.12f).translated(0, off);
             const Colour base = lit ? colour : colour.darker(0.55f);
-            g.setColour(base.darker(0.6f)); g.fillEllipse(cap.translated(0, down ? 0.0f : 2.5f));
-            g.setGradientFill(juce::ColourGradient(base.brighter(0.5f), cap.getX(), cap.getY(), base.darker(0.2f), cap.getRight(), cap.getBottom(), false)); g.fillEllipse(cap);
-            g.setColour(Colour(0x66ffffff)); g.fillEllipse(Rectangle<float>(cap.getWidth() * 0.5f, cap.getHeight() * 0.24f).withCentre({cap.getCentreX(), cap.getY() + cap.getHeight() * 0.24f}));
-            label(cap, Colour(0xff101214)); break; }
+            if (!down) { g.setColour(Colour(0x88000000)); g.fillEllipse(cap.translated(0, 2.5f)); }
+            g.setGradientFill(juce::ColourGradient(base.brighter(down ? 0.15f : 0.55f), cap.getX(), cap.getY(), base.darker(0.25f), cap.getRight(), cap.getBottom(), false)); g.fillEllipse(cap);
+            g.setColour(Colour(0x77ffffff)); g.fillEllipse(Rectangle<float>(cap.getWidth() * 0.52f, cap.getHeight() * 0.26f).withCentre({cap.getCentreX(), cap.getY() + cap.getHeight() * 0.25f}));
+            label(cap, Colour(0xff0d0f11)); break; }
         case PushStyle::Pill: {
             const float rad = face.getHeight() * 0.5f;
-            g.setColour(Colour(0xff0a0b0c)); g.fillRoundedRectangle(r.expanded(1.5f), rad + 1.5f);
-            g.setGradientFill(juce::ColourGradient((lit ? colour : Colour(0xffcfd2d0)).brighter(0.25f), 0, face.getY(), (lit ? colour : Colour(0xff8d9593)).darker(0.25f), 0, face.getBottom(), false)); g.fillRoundedRectangle(face, rad);
-            g.setColour(Colour(0x55ffffff)); g.drawHorizontalLine(int(face.getY() + 2), face.getX() + rad, face.getRight() - rad);
-            label(face, Colour(0xff1d2123)); break; }
+            g.setColour(Colour(0xff08090a)); g.fillRoundedRectangle(r.expanded(2.0f), rad + 2.0f);
+            g.setColour(Colour(0x28ffffff)); g.drawRoundedRectangle(r.expanded(2.0f), rad + 2.0f, 0.7f);
+            if (!down) { g.setColour(Colour(0x88000000)); g.fillRoundedRectangle(face.translated(0, 2.5f), rad); }
+            const Colour base = lit ? colour : Colour(0xffccd0ce);
+            g.setGradientFill(juce::ColourGradient(base.brighter(down ? 0.08f : 0.32f), 0, face.getY(), base.darker(down ? 0.40f : 0.28f), 0, face.getBottom(), false)); g.fillRoundedRectangle(face, rad);
+            g.setColour(Colour(0x77ffffff)); g.drawHorizontalLine(int(face.getY() + 1.5f), face.getX() + rad, face.getRight() - rad);
+            g.setColour(Colour(0x40000000)); g.drawRoundedRectangle(face, rad, 0.8f);
+            label(face, Colour(0xff181c1e)); break; }
     }
 }
 

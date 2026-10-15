@@ -40,15 +40,76 @@ inline void disc(const Ctx& k, float radius, Colour top, Colour bottom, Point<fl
     k.g.setGradientFill(juce::ColourGradient(top, c.x - radius, c.y - radius, bottom, c.x + radius, c.y + radius, false));
     k.g.fillEllipse(c.x - radius, c.y - radius, radius * 2, radius * 2);
 }
+// Directional beveled rim: catches studio key-light on top-left (10:30), casts shadow on bottom-right (4:30).
 inline void rim(const Ctx& k, float radius, Colour col, float w = 0.8f) {
+    const float lx = k.c.x - radius * 0.707f, ly = k.c.y - radius * 0.707f;
+    const float sx = k.c.x + radius * 0.707f, sy = k.c.y + radius * 0.707f;
+    const auto hi = col.brighter(0.40f);
+    const auto lo = col.darker(0.60f);
+    k.g.setGradientFill(juce::ColourGradient(hi, lx, ly, lo, sx, sy, false));
+    k.g.drawEllipse(k.c.x - radius, k.c.y - radius, radius * 2, radius * 2, w);
+}
+inline void rimFlat(const Ctx& k, float radius, Colour col, float w = 0.8f) {
     k.g.setColour(col);
     k.g.drawEllipse(k.c.x - radius, k.c.y - radius, radius * 2, radius * 2, w);
 }
-inline void shadow(const Ctx& k, float radius) {
-    for (int n = 5; n > 0; --n) {
-        k.g.setColour(Colour(0x0b000000));
-        const float e = radius + float(n) * 0.8f;
-        k.g.fillEllipse(k.c.x - e + 1, k.c.y - e + 3, e * 2, e * 2);
+inline void bevelRim(const Ctx& k, float radius, Colour lightCol, Colour shadowCol, float w = 1.0f) {
+    const float lx = k.c.x - radius * 0.707f, ly = k.c.y - radius * 0.707f;
+    const float sx = k.c.x + radius * 0.707f, sy = k.c.y + radius * 0.707f;
+    k.g.setGradientFill(juce::ColourGradient(lightCol, lx, ly, shadowCol, sx, sy, false));
+    k.g.drawEllipse(k.c.x - radius, k.c.y - radius, radius * 2, radius * 2, w);
+}
+// Clean, grounded hardware shadow: contact ambient occlusion under the knob base plus a subtle directional contact blur
+inline void shadow(const Ctx& k, float radius, float heightFactor = 1.0f) {
+    auto& g = k.g;
+    // 1. Contact ambient occlusion directly beneath the knob perimeter
+    for (int n = 4; n > 0; --n) {
+        g.setColour(Colour(0x38000000));
+        const float e = radius + float(n) * 0.4f;
+        g.fillEllipse(k.c.x - e, k.c.y - e + 0.5f, e * 2, e * 2);
+    }
+    // 2. Controlled directional drop shadow (offset slightly down-right, soft penumbra)
+    const float dx = radius * 0.05f * heightFactor;
+    const float dy = radius * 0.08f * heightFactor;
+    for (int n = 6; n > 0; --n) {
+        g.setColour(Colour(0x0e000000));
+        const float sx = dx * (float(n) / 6.0f);
+        const float sy = dy * (float(n) / 6.0f);
+        const float e = radius + float(n) * 0.7f * heightFactor;
+        g.fillEllipse(k.c.x - e + sx, k.c.y - e + sy, e * 2, e * 2);
+    }
+}
+
+// Cylindrical side-wall bevel connecting skirt to elevated body
+inline void barrelWall(const Ctx& k, float rBase, float rTop, float dy, Colour lightCol, Colour shadowCol) {
+    juce::ignoreUnused(dy);
+    // Beveled cylindrical shoulder
+    k.g.setGradientFill(juce::ColourGradient(lightCol, k.c.x - rBase * 0.707f, k.c.y - rBase * 0.707f,
+                                            shadowCol, k.c.x + rBase * 0.707f, k.c.y + rBase * 0.707f, false));
+    k.g.fillEllipse(k.c.x - rBase, k.c.y - rBase, rBase * 2, rBase * 2);
+    k.g.setColour(shadowCol.darker(0.3f));
+    k.g.drawEllipse(k.c.x - rBase, k.c.y - rBase, rBase * 2, rBase * 2, 1.0f);
+    juce::ignoreUnused(rTop);
+}
+
+// Machined grub/set screw on the skirt collar (disabled per user request)
+inline void grubScrew(const Ctx& k, Point<float> pos, float rScrew, float slotAngle = 0.785f, Colour metal = Colour(0xff8a7542)) {
+    juce::ignoreUnused(k, pos, rScrew, slotAngle, metal);
+}
+
+// Anisotropic radial reflection cones characteristic of lathe-turned aluminum / chrome
+inline void anisotropicSheen(const Ctx& k, float radius, float strength = 0.20f) {
+    for (float a : {-0.785f, 2.356f}) {
+        auto p0 = at(k, a - 0.42f, radius);
+        auto p1 = at(k, a + 0.42f, radius);
+        juce::Path cone;
+        cone.startNewSubPath(k.c);
+        cone.lineTo(p0);
+        cone.lineTo(p1);
+        cone.closeSubPath();
+        k.g.setGradientFill(juce::ColourGradient(Colour::fromFloatRGBA(1, 1, 1, strength), k.c.x, k.c.y,
+                                                Colour::fromFloatRGBA(1, 1, 1, 0.0f), (p0.x + p1.x) * 0.5f, (p0.y + p1.y) * 0.5f, false));
+        k.g.fillPath(cone);
     }
 }
 // Fixed printed marks over the knob's sweep.
@@ -59,23 +120,40 @@ inline void dots(const Ctx& k, float radiusFrac, int n, float size, Colour col) 
         k.g.fillEllipse(p.x - size * 0.5f, p.y - size * 0.5f, size, size);
     }
 }
-inline void line(const Ctx& k, float from, float to, float w, Colour col, float angle) {
-    k.g.setColour(Colour(0x66000000));
-    k.g.drawLine({at(k, angle, from) + Point<float>(0.6f, 0.8f), at(k, angle, to) + Point<float>(0.6f, 0.8f)}, w + 0.6f);
-    k.g.setColour(col);
-    k.g.drawLine({at(k, angle, from), at(k, angle, to)}, w);
+// Crisp, clean engraved indicator slot with subtle trench depth and enamel paint infill
+inline void line(const Ctx& k, float from, float to, float w, Colour col, float angle, Point<float> offset = {0,0}) {
+    auto& g = k.g;
+    const auto p0 = at(k, angle, from) + offset;
+    const auto p1 = at(k, angle, to) + offset;
+    // Subtle milled groove shadow
+    g.setColour(Colour(0x60000000));
+    g.drawLine({p0 + Point<float>(0.35f, 0.5f), p1 + Point<float>(0.35f, 0.5f)}, w + 0.6f);
+    // Clean enamel paint
+    g.setColour(col);
+    g.drawLine({p0, p1}, w);
 }
 inline void flutes(const Ctx& k, float r0, float r1, int n, Colour dark, Colour light, float w) {
     for (int i = 0; i < n; ++i) {
         const float t = k.a + float(i) * juce::MathConstants<float>::twoPi / float(n);
         const auto v = dir(t);
-        const float l = juce::jlimit(0.0f, 1.0f, 0.5f - 0.35f * (v.x + v.y));
+        const float l = juce::jlimit(0.0f, 1.0f, 0.5f - 0.38f * (v.x + v.y));
+        const auto p0 = k.c + v * r0;
+        const auto p1 = k.c + v * r1;
+        // Deep shadow groove behind the tooth
+        k.g.setColour(Colour(0xaa000000));
+        k.g.drawLine({p0 + Point<float>(0.6f, 0.8f), p1 + Point<float>(0.6f, 0.8f)}, w + 0.6f);
+        // Tooth body
         k.g.setColour(dark.interpolatedWith(light, l));
-        k.g.drawLine({k.c + v * r0, k.c + v * r1}, w);
+        k.g.drawLine({p0, p1}, w);
+        // Crest specular highlight facing key light
+        if (l > 0.38f && w > 1.0f) {
+            k.g.setColour(Colour(0x60ffffff));
+            k.g.drawLine({p0 - v * 0.25f, p1 - v * 0.25f}, w * 0.35f);
+        }
     }
 }
 inline void gloss(const Ctx& k, float radius, float strength = 0.22f) {
-    auto r = juce::Rectangle<float>(radius * 1.2f, radius * 0.7f).withCentre({k.c.x - radius * 0.25f, k.c.y - radius * 0.45f});
+    auto r = juce::Rectangle<float>(radius * 1.25f, radius * 0.68f).withCentre({k.c.x - radius * 0.22f, k.c.y - radius * 0.42f});
     k.g.setGradientFill(juce::ColourGradient(Colour::fromFloatRGBA(1, 1, 1, strength), r.getX(), r.getY(),
                                              Colour::fromFloatRGBA(1, 1, 1, 0), r.getX(), r.getBottom(), false));
     k.g.fillEllipse(r);
@@ -92,96 +170,145 @@ inline juce::Path wedge(const Ctx& k, float baseHalf, float tip, float tipHalf, 
     return p;
 }
 
-// N: chrome collar, grey fluted grip, flat cap, white dotted ring.
+// N: Neve/Marconi dual-collet knob: extruded skirt, fluted grip, brass collet nut, set screw, dished cap, enamel notch
 inline void drawN(const Ctx& k) {
-    auto& g = k.g;
     dots(k, 0.94f, 21, k.r * 0.05f, Colour(0xffe9eef2));
-    const float R = k.r * 0.80f, G = R * 0.78f;
-    shadow(k, R);
-    disc(k, R, Colour(0xfff6f8f8), Colour(0xff656b6f));
-    rim(k, R, Colour(0xff2b3033));
-    disc(k, G, Colour(0xff9a9ea1), Colour(0xff45494c));
-    flutes(k, G * 0.70f, G * 0.97f, 30, Colour(0xff34383b), Colour(0xffb4b8ba), 1.6f);
+    const float R = k.r * 0.82f;
+    const float elev = k.r * 0.035f;
+    shadow(k, R, 1.15f);
+    barrelWall(k, R, R * 0.95f, elev * 2.0f, Colour(0xff888e91), Colour(0xff181a1c));
+    disc(k, R, Colour(0xfff6f8f8), Colour(0xff606669));
+    bevelRim(k, R, Colour(0x88ffffff), Colour(0xaa000000), 1.1f);
+    // Grub screw on the skirt
+    grubScrew(k, k.c + Point<float>(R * 0.62f, R * 0.60f), k.r * 0.055f, 0.65f, Colour(0xffb89852));
+    // Raised fluted body
+    const float G = R * 0.78f;
+    disc(k, G, Colour(0xff9a9ea1), Colour(0xff35393c));
+    flutes(k, G * 0.68f, G * 0.98f, 32, Colour(0xff222527), Colour(0xffb8bcbe), 1.8f);
+    bevelRim(k, G, Colour(0x66ffffff), Colour(0x88000000), 1.0f);
+    // Brass collet nut ring
+    const float Cnut = R * 0.52f;
+    disc(k, Cnut, Colour(0xffd4b46a), Colour(0xff6a521a));
+    bevelRim(k, Cnut, Colour(0x88ffffff), Colour(0x66000000), 0.8f);
+    // Molded cap
     const float C = R * 0.44f;
-    disc(k, C, k.accent.brighter(0.2f), k.accent.darker(0.4f));
-    rim(k, C, k.accent.darker(0.7f));
-    g.setColour(Colour(0xff0a0b0c));
-    g.drawLine({at(k, k.a, G * 1.01f), at(k, k.a, R * 0.99f)}, k.r * 0.05f);
+    disc(k, C, k.accent.brighter(0.25f), k.accent.darker(0.45f));
+    bevelRim(k, C, k.accent.brighter(0.60f), k.accent.darker(0.85f), 1.0f);
+    gloss(k, C, 0.22f);
+    // Single clean engraved pointer line on the outer chrome collar
+    line(k, G * 1.01f, R * 0.99f, k.r * 0.055f, Colour(0xff0a0b0c), k.a);
 }
 
-// A: flared silver crown with a large flat matte cap (a pointer lug on top, small side lugs).
+// A: API-style console knob: flared silver crown with pointer lug and side ears, recessed matte cap
 inline void drawA(const Ctx& k) {
     auto& g = k.g;
     dots(k, 0.97f, 21, k.r * 0.05f, k.accent.brighter(0.55f));
     const float R = k.r * 0.74f;
+    shadow(k, R, 1.15f);
     auto body = wedge(k, R * 0.92f, k.r * 0.97f, k.r * 0.20f, k.a);
     const Point<float> lugA = at(k, k.a + 1.72f, R * 1.0f), lugB = at(k, k.a - 1.72f, R * 1.0f);
-    for (int n = 3; n > 0; --n) {                                          // contact shadow follows the shape
-        g.setColour(Colour(0x16000000));
-        const auto t = juce::AffineTransform::translation(float(n) * 0.6f, float(n) * 1.1f);
-        g.fillPath(body, t); g.fillEllipse(k.c.x - R + float(n) * 0.6f, k.c.y - R + float(n) * 1.1f, R * 2, R * 2);
-    }
-    g.setGradientFill(juce::ColourGradient(Colour(0xfff1f3f3), k.c.x - R, k.c.y - R, Colour(0xff8a9195), k.c.x + R, k.c.y + R, false));
-    g.fillPath(body); g.fillEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2);
+    // Beveled flared silver crown body
+    g.setGradientFill(juce::ColourGradient(Colour(0xfff5f7f8), k.c.x - R * 0.707f, k.c.y - R * 0.707f,
+                                           Colour(0xff757d82), k.c.x + R * 0.707f, k.c.y + R * 0.707f, false));
+    g.fillPath(body);
+    g.fillEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2);
     for (auto l : {lugA, lugB}) g.fillEllipse(l.x - R * 0.17f, l.y - R * 0.17f, R * 0.34f, R * 0.34f);
-    g.setColour(Colour(0xff2a2f32)); g.strokePath(body, juce::PathStrokeType(1.0f)); g.drawEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2, 1.0f);
-    for (auto l : {lugA, lugB}) g.drawEllipse(l.x - R * 0.17f, l.y - R * 0.17f, R * 0.34f, R * 0.34f, 0.8f);
-    g.setColour(Colour(0x55000000)); g.drawEllipse(k.c.x - R * 0.90f, k.c.y - R * 0.90f, R * 1.80f, R * 1.80f, 1.4f);   // groove around the cap
+    // Crisp beveled rim
+    bevelRim(k, R, Colour(0x88ffffff), Colour(0x66000000), 1.0f);
+    g.setColour(Colour(0xff222527));
+    g.strokePath(body, juce::PathStrokeType(0.8f));
+    for (auto l : {lugA, lugB}) g.drawEllipse(l.x - R * 0.17f, l.y - R * 0.17f, R * 0.34f, R * 0.34f, 0.7f);
+    // Machined groove around cap
+    g.setColour(Colour(0x55000000));
+    g.drawEllipse(k.c.x - R * 0.90f, k.c.y - R * 0.90f, R * 1.80f, R * 1.80f, 1.2f);
+    // Center cap with dished spherical normal shading
     const float C = R * 0.86f;
-    g.setGradientFill(juce::ColourGradient(k.accent.brighter(0.10f), k.c.x - C, k.c.y - C, k.accent.darker(0.22f), k.c.x + C, k.c.y + C, false));
-    g.fillEllipse(k.c.x - C, k.c.y - C, C * 2, C * 2);                        // flat matte: no gloss
-    g.setColour(k.accent.darker(0.6f)); g.drawEllipse(k.c.x - C, k.c.y - C, C * 2, C * 2, 0.9f);
-    g.setColour(Colour(0x1affffff)); g.drawEllipse(k.c.x - C * 0.96f, k.c.y - C * 0.96f, C * 1.92f, C * 1.92f, 0.7f);
-    g.setColour(Colour(0x88000000)); g.drawLine({at(k, k.a, R * 0.80f), at(k, k.a, k.r * 0.93f)}, 1.2f);               // ridge on the pointer lug
+    disc(k, C, k.accent.brighter(0.18f), k.accent.darker(0.35f));
+    bevelRim(k, C, k.accent.brighter(0.55f), k.accent.darker(0.70f), 0.9f);
+    gloss(k, C, 0.16f);
+    // Clean engraved pointer slot on the beak
+    line(k, R * 0.78f, k.r * 0.94f, k.r * 0.065f, Colour(0xfff7f5ec), k.a);
 }
 
-// Mic: translucent crown pointer knob in the item colour with a white indicator.
+// Mic: translucent crown pointer knob in the item colour with a faceted beak and white indicator.
 inline void drawMic(const Ctx& k) {
     auto& g = k.g;
     dots(k, 0.97f, 21, k.r * 0.045f, Colour(0xffe9eef2));
     const float R = k.r * 0.70f;
-    auto body = wedge(k, R * 0.90f, k.r * 0.96f, k.r * 0.24f, k.a);
-    for (int n = 3; n > 0; --n) { g.setColour(Colour(0x16000000)); const auto t = juce::AffineTransform::translation(float(n) * 0.6f, float(n) * 1.1f); g.fillPath(body, t); g.fillEllipse(k.c.x - R + float(n) * 0.6f, k.c.y - R + float(n) * 1.1f, R * 2, R * 2); }
-    g.setGradientFill(juce::ColourGradient(k.accent.brighter(0.55f), k.c.x - R, k.c.y - R, k.accent.darker(0.65f), k.c.x + R, k.c.y + R, false));
-    g.fillPath(body); g.fillEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2);
-    g.setColour(k.accent.darker(0.8f)); g.strokePath(body, juce::PathStrokeType(1.0f)); g.drawEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2, 1.0f);
+    const auto v = dir(k.a);
+    const Point<float> n(-v.y, v.x);
+    auto body = wedge(k, R * 0.90f, k.r * 0.96f, k.r * 0.22f, k.a);
+    shadow(k, R, 1.15f);
+    g.setColour(Colour(0x35000000));
+    g.fillPath(body, juce::AffineTransform::translation(0.5f, 0.8f));
+    // Faceted pointer body
+    juce::Path litHalf, shHalf;
+    litHalf.startNewSubPath(k.c); litHalf.lineTo(k.c + v * k.r * 0.96f); litHalf.lineTo(k.c + v * k.r * 0.90f - n * k.r * 0.18f); litHalf.lineTo(k.c - n * R * 0.88f); litHalf.closeSubPath();
+    shHalf.startNewSubPath(k.c); shHalf.lineTo(k.c + v * k.r * 0.96f); shHalf.lineTo(k.c + v * k.r * 0.90f + n * k.r * 0.18f); shHalf.lineTo(k.c + n * R * 0.88f); shHalf.closeSubPath();
+    g.setGradientFill(juce::ColourGradient(k.accent.brighter(0.65f), k.c.x - R, k.c.y - R, k.accent.darker(0.35f), k.c.x + R, k.c.y + R, false));
+    g.fillPath(litHalf);
+    g.setGradientFill(juce::ColourGradient(k.accent.darker(0.15f), k.c.x - R, k.c.y - R, k.accent.darker(0.75f), k.c.x + R, k.c.y + R, false));
+    g.fillPath(shHalf);
+    disc(k, R, k.accent.brighter(0.40f), k.accent.darker(0.55f));
+    bevelRim(k, R, k.accent.brighter(0.8f), k.accent.darker(0.85f), 1.0f);
     const float C = R * 0.62f;
-    g.setGradientFill(juce::ColourGradient(k.accent.brighter(0.25f), k.c.x - C, k.c.y - C, k.accent.darker(0.5f), k.c.x + C, k.c.y + C, false)); g.fillEllipse(k.c.x - C, k.c.y - C, C * 2, C * 2);
-    gloss(k, R, 0.22f);
-    line(k, R * 0.05f, k.r * 0.93f, k.r * 0.06f, Colour(0xfff8f4e6), k.a);
+    disc(k, C, k.accent.brighter(0.25f), k.accent.darker(0.5f));
+    bevelRim(k, C, k.accent.brighter(0.6f), k.accent.darker(0.8f), 0.8f);
+    gloss(k, R, 0.30f);
+    line(k, R * 0.05f, k.r * 0.93f, k.r * 0.065f, Colour(0xfff8f4e6), k.a);
 }
 
-// FS: pale-grey skirt, coloured cap, black pointer line.
+// FS: Focusrite ISA style: flared conical skirt with side wall, dark stepped collar, brass set screw, dished colored cap
 inline void drawFS(const Ctx& k) {
     dots(k, 0.95f, 11, k.r * 0.04f, Colour(0xffdfe3e2));
-    const float R = k.r * 0.84f;
-    shadow(k, R);
-    disc(k, R, Colour(0xffe9ebea), Colour(0xff8d9492));
-    rim(k, R, Colour(0xff4a504f));
+    const float R = k.r * 0.86f;
+    const float elev = k.r * 0.035f;
+    shadow(k, R, 1.2f);
+    barrelWall(k, R, R * 0.95f, elev * 2.0f, Colour(0xffd5dcdb), Colour(0xff4a5250));
+    disc(k, R, Colour(0xfff4f6f5), Colour(0xff7a8280));
+    bevelRim(k, R, Colour(0x75ffffff), Colour(0x88000000), 1.1f);
+    // Grub screw on the pale-grey skirt
+    grubScrew(k, k.c + Point<float>(R * 0.64f, R * 0.58f), k.r * 0.052f, 0.65f, Colour(0xff2a2e30));
+    // Dark stepped collar groove
+    const float G = R * 0.74f;
+    disc(k, G, Colour(0xff121516), Colour(0xff323639));
+    bevelRim(k, G, Colour(0x28ffffff), Colour(0x77000000), 0.9f);
+    // Dished coloured cap
     const float C = R * 0.66f;
-    disc(k, C, k.accent.brighter(0.25f), k.accent.darker(0.35f));
-    rim(k, C, k.accent.darker(0.7f));
-    gloss(k, C, 0.16f);
-    line(k, R * 0.10f, R * 0.98f, k.r * 0.07f, Colour(0xff101213), k.a);
+    disc(k, C, k.accent.brighter(0.32f), k.accent.darker(0.42f));
+    bevelRim(k, C, k.accent.brighter(0.65f), k.accent.darker(0.85f), 1.0f);
+    gloss(k, C, 0.28f);
+    // Engraved pointer trench
+    line(k, R * 0.10f, R * 0.96f, k.r * 0.07f, Colour(0xff0a0c0d), k.a);
 }
 
-// Mtl: knurled aluminium body, brushed top, dark pointer line.
+// Mtl: Precision turned aluminium: 3D diamond knurling, anisotropic lathe sheen, concentric micro-grooves, engraved index slot
 inline void drawMtl(const Ctx& k) {
     auto& g = k.g;
     dots(k, 0.95f, 11, k.r * 0.035f, Colour(0xffc7ccce));
-    const float R = k.r * 0.86f, T = R * 0.76f;
-    shadow(k, R);
-    disc(k, R, Colour(0xffe4e7e9), Colour(0xff6b7378));
-    flutes(k, R * 0.84f, R * 0.99f, 72, Colour(0xff4f575b), Colour(0xffeff1f2), 0.9f);
-    rim(k, R, Colour(0xff2f3538));
-    disc(k, T, Colour(0xfffafbfb), Colour(0xff9ea5a9));
-    g.setColour(Colour(0x14000000));
-    for (int i = 1; i <= 6; ++i) {
-        const float e = T * float(i) / 6.0f;
-        g.drawEllipse(k.c.x - e, k.c.y - e, e * 2, e * 2, 0.5f);
+    const float R = k.r * 0.86f, T = R * 0.78f;
+    const float elev = k.r * 0.032f;
+    shadow(k, R, 1.15f);
+    barrelWall(k, R, R * 0.96f, elev * 2.0f, Colour(0xff98a0a4), Colour(0xff222629));
+    disc(k, R, Colour(0xffeef1f2), Colour(0xff5a6266));
+    // Straight milled knurling teeth around the barrel rim
+    flutes(k, R * 0.80f, R * 0.99f, 64, Colour(0xff32383c), Colour(0xfff2f5f6), 1.4f);
+    bevelRim(k, R, Colour(0x99ffffff), Colour(0x77000000), 1.1f);
+    // Spun aluminum face
+    disc(k, T, Colour(0xfffafbfb), Colour(0xff8c9498));
+    anisotropicSheen(k, T, 0.32f);
+    // Concentric lathe micro-grooves
+    g.setColour(Colour(0x18000000));
+    for (int i = 1; i <= 7; ++i) {
+        const float e = T * float(i) / 7.2f;
+        g.drawEllipse(k.c.x - e, k.c.y - e, e * 2, e * 2, 0.55f);
     }
-    rim(k, T, Colour(0x66ffffff));
-    line(k, T * 0.08f, T * 0.98f, k.r * 0.07f, k.accent.darker(0.2f), k.a);
+    bevelRim(k, T, Colour(0xaaffffff), Colour(0x66000000), 1.0f);
+    gloss(k, T, 0.18f);
+    // Grub screw on the skirt
+    grubScrew(k, k.c + Point<float>(R * 0.62f, R * 0.60f), k.r * 0.048f, 0.785f, Colour(0xff3a3f44));
+    // Engraved index trench filled with black enamel
+    line(k, T * 0.10f, T * 0.98f, k.r * 0.065f, k.accent.darker(0.35f), k.a);
 }
 
 inline void woodKnob(const Ctx& k, Colour side1, Colour side2, Colour top1, Colour top2, Colour grain) {
@@ -189,7 +316,7 @@ inline void woodKnob(const Ctx& k, Colour side1, Colour side2, Colour top1, Colo
     const float R = k.r * 0.86f, T = R * 0.80f;
     shadow(k, R);
     disc(k, R, side1, side2);
-    rim(k, R, Colour(0xff25150a));
+    bevelRim(k, R, side1.brighter(0.35f), side2.darker(0.6f), 1.0f);
     disc(k, T, top1, top2);
     g.saveState();
     juce::Path clip;
@@ -198,18 +325,18 @@ inline void woodKnob(const Ctx& k, Colour side1, Colour side2, Colour top1, Colo
     g.addTransform(juce::AffineTransform::rotation(k.a, k.c.x, k.c.y));
     g.setColour(grain);
     for (int i = -5; i <= 5; ++i) {
-        juce::Path grain;
+        juce::Path grainPath;
         for (int s = 0; s <= 16; ++s) {
             const float x = k.c.x - T + T * 2 * float(s) / 16.0f;
             const float y = k.c.y + float(i) * T * 0.17f + std::sin(float(s) * 0.55f + float(i)) * T * 0.045f;
-            s == 0 ? grain.startNewSubPath(x, y) : grain.lineTo(x, y);
+            s == 0 ? grainPath.startNewSubPath(x, y) : grainPath.lineTo(x, y);
         }
-        g.strokePath(grain, juce::PathStrokeType(0.7f + 0.2f * float(i & 1)));
+        g.strokePath(grainPath, juce::PathStrokeType(0.7f + 0.2f * float(i & 1)));
     }
     g.restoreState();
-    rim(k, T, Colour(0x55ffffff));
-    gloss(k, T, 0.20f);
-    line(k, T * 0.16f, T * 0.92f, k.r * 0.065f, k.accent.brighter(0.3f), k.a);
+    bevelRim(k, T, Colour(0x77ffffff), Colour(0x44000000), 0.9f);
+    gloss(k, T, 0.32f);
+    line(k, T * 0.16f, T * 0.92f, k.r * 0.065f, k.accent.brighter(0.4f), k.a);
 }
 
 // Wd: turned wood with grain and an inlaid pointer.
@@ -217,28 +344,34 @@ inline void drawWd(const Ctx& k) { woodKnob(k, Colour(0xffa97444), Colour(0xff3e
 // Mpl: light maple.
 inline void drawMpl(const Ctx& k) { woodKnob(k, Colour(0xffe6c590), Colour(0xff9a7442), Colour(0xfff3dcb0), Colour(0xffc29a64), Colour(0x387a5428)); }
 
-// Bk: black bakelite teardrop pointer over a ribbed base.
+// Bk: Vintage molded Bakelite knob: fluted ribbed base skirt with a sleek phenolic teardrop pointer
 inline void drawBk(const Ctx& k) {
     auto& g = k.g;
     const float R = k.r * 0.88f, T = k.r * 0.60f;
-    shadow(k, R);
-    disc(k, R, Colour(0xff323336), Colour(0xff09090a));
-    flutes(k, R * 0.88f, R * 0.99f, 36, Colour(0xff050506), Colour(0xff4c4e52), 1.3f);
-    auto drop = wedge(k, T * 0.96f, k.r * 0.97f, k.r * 0.07f, k.a);
-    g.setGradientFill(juce::ColourGradient(Colour(0xff4a4b4f), k.c.x - T, k.c.y - T, Colour(0xff060607), k.c.x + T, k.c.y + T, false));
+    shadow(k, R, 1.15f);
+    // Deep warm ebony-charcoal Bakelite base skirt
+    disc(k, R, Colour(0xff34363a), Colour(0xff09090a));
+    flutes(k, R * 0.86f, R * 0.99f, 36, Colour(0xff050506), Colour(0xff55585d), 1.4f);
+    bevelRim(k, R, Colour(0x55ffffff), Colour(0xff000000), 1.0f);
+    // Sleek raised teardrop pointer cap
+    auto drop = wedge(k, T * 0.96f, k.r * 0.97f, k.r * 0.08f, k.a);
+    g.setColour(Colour(0x35000000));
+    g.fillPath(drop, juce::AffineTransform::translation(0.5f, 0.8f));
+    g.setGradientFill(juce::ColourGradient(Colour(0xff4a4c50), k.c.x - T * 0.707f, k.c.y - T * 0.707f,
+                                           Colour(0xff060607), k.c.x + T * 0.707f, k.c.y + T * 0.707f, false));
     g.fillPath(drop);
     g.fillEllipse(k.c.x - T, k.c.y - T, T * 2, T * 2);
-    g.setColour(Colour(0x44ffffff));
-    g.drawEllipse(k.c.x - T, k.c.y - T, T * 2, T * 2, 0.7f);
-    gloss(k, T, 0.26f);
-    line(k, T * 0.25f, k.r * 0.90f, k.r * 0.055f, k.accent, k.a);
+    bevelRim(k, T, Colour(0x65ffffff), Colour(0xff000000), 0.9f);
+    gloss(k, T, 0.28f);
+    // Molded enamel pointer line
+    line(k, T * 0.22f, k.r * 0.92f, k.r * 0.06f, k.accent, k.a);
 }
 
-// Pie: white serrated skirt around a black cap.
+// Pie: white serrated skirt around a black cap: each tooth modeled with 3D bevels, glossy cap
 inline void drawPie(const Ctx& k) {
     auto& g = k.g;
-    const float R = k.r * 0.90f, inner = R * 0.88f;
-    shadow(k, R);
+    const float R = k.r * 0.90f, inner = R * 0.86f;
+    shadow(k, R, 1.15f);
     juce::Path skirt;
     const int teeth = 24;
     for (int i = 0; i < teeth * 2; ++i) {
@@ -247,74 +380,100 @@ inline void drawPie(const Ctx& k) {
         i == 0 ? skirt.startNewSubPath(p) : skirt.lineTo(p);
     }
     skirt.closeSubPath();
-    g.setGradientFill(juce::ColourGradient(Colour(0xfff6f6f4), k.c.x - R, k.c.y - R, Colour(0xffaaaca9), k.c.x + R, k.c.y + R, false));
+    g.setGradientFill(juce::ColourGradient(Colour(0xffffffff), k.c.x - R, k.c.y - R, Colour(0xff949896), k.c.x + R, k.c.y + R, false));
     g.fillPath(skirt);
-    g.setColour(Colour(0xff3a3c3b));
-    g.strokePath(skirt, juce::PathStrokeType(0.6f));
-    const float C = R * 0.70f;
-    disc(k, C, Colour(0xff2f3032), Colour(0xff060607));
-    rim(k, C, Colour(0x55ffffff));
-    gloss(k, C, 0.12f);
-    line(k, C * 0.10f, R * 0.98f, k.r * 0.065f, k.accent, k.a);
+    g.setColour(Colour(0xff2d302f));
+    g.strokePath(skirt, juce::PathStrokeType(0.8f));
+    // Black bakelite center cap
+    const float C = R * 0.68f;
+    disc(k, C, Colour(0xff35373a), Colour(0xff060708));
+    bevelRim(k, C, Colour(0x55ffffff), Colour(0xff000000), 1.0f);
+    gloss(k, C, 0.32f);
+    // Pointer line extending across the serrated skirt
+    line(k, C * 0.12f, R * 0.98f, k.r * 0.065f, k.accent, k.a);
 }
 
-// Snk: matte black cylinder with a fixed tick ring.
+// Snk: matte black cylinder with a fixed tick ring, knurled barrel, grub screw
 inline void drawSnk(const Ctx& k) {
     dots(k, 0.93f, 11, k.r * 0.05f, Colour(0xffb4b8ba));
-    const float R = k.r * 0.78f;
-    shadow(k, R);
+    const float R = k.r * 0.80f;
+    const float elev = k.r * 0.035f;
+    shadow(k, R, 1.2f);
+    barrelWall(k, R, R * 0.95f, elev * 2.0f, Colour(0xff42464a), Colour(0xff0b0d0e));
     disc(k, R, Colour(0xff34363a), Colour(0xff0b0b0c));
-    flutes(k, R * 0.90f, R * 0.99f, 48, Colour(0xff0a0a0b), Colour(0xff2f3134), 0.8f);
-    rim(k, R * 0.88f, Colour(0x22ffffff));
-    rim(k, R, Colour(0xff000000));
-    gloss(k, R * 0.9f, 0.08f);
-    line(k, R * 0.12f, R * 0.84f, k.r * 0.07f, k.accent.brighter(0.4f), k.a);
+    flutes(k, R * 0.82f, R * 0.99f, 48, Colour(0xff080809), Colour(0xff4a4e52), 1.3f);
+    bevelRim(k, R, Colour(0x60ffffff), Colour(0xff000000), 1.1f);
+    grubScrew(k, k.c + Point<float>(R * 0.62f, R * 0.60f), k.r * 0.05f, 0.785f, Colour(0xff42464a));
+    const float C = R * 0.78f;
+    disc(k, C, Colour(0xff25272a), Colour(0xff0e1011));
+    bevelRim(k, C, Colour(0x35ffffff), Colour(0x66000000), 0.8f);
+    gloss(k, C, 0.16f);
+    line(k, R * 0.10f, R * 0.94f, k.r * 0.075f, k.accent.brighter(0.4f), k.a);
 }
 
-// Slv: silver cylinder on a dark skirt ring with dots.
+// Slv: silver cylinder on a dark skirt ring with dots (Fender/Marshall style)
 inline void drawSlv(const Ctx& k) {
-    const float R = k.r * 0.95f, T = k.r * 0.64f;
-    shadow(k, R);
-    disc(k, R, Colour(0xff595d60), Colour(0xff1b1e20));
-    dots(k, 0.82f, 21, k.r * 0.05f, Colour(0xffe6e9ea));
-    shadow(k, T);
-    disc(k, T, Colour(0xfff4f6f6), Colour(0xff8c9397));
-    flutes(k, T * 0.86f, T * 0.98f, 60, Colour(0xff6c7377), Colour(0xffe9ecee), 0.8f);
-    rim(k, T, Colour(0xff30363a));
-    disc(k, T * 0.78f, Colour(0xffffffff), Colour(0xffaab1b5));
-    line(k, T * 0.10f, T * 0.76f, k.r * 0.075f, k.accent.darker(0.5f), k.a);
+    const float R = k.r * 0.95f, T = k.r * 0.66f;
+    shadow(k, R, 1.25f);
+    disc(k, R, Colour(0xffeceff0), Colour(0xff727a7e));
+    bevelRim(k, R, Colour(0x88ffffff), Colour(0x66000000), 1.0f);
+    // Skirt calibration dots/ticks
+    dots(k, 0.82f, 21, k.r * 0.045f, Colour(0xff15181a));
+    // Raised knurled black barrel
+    shadow(k, T, 1.05f);
+    disc(k, T, Colour(0xff303437), Colour(0xff090b0c));
+    flutes(k, T * 0.82f, T * 0.98f, 48, Colour(0xff060809), Colour(0xff555d62), 1.3f);
+    bevelRim(k, T, Colour(0x40ffffff), Colour(0xff000000), 1.0f);
+    // Spun aluminum bright center insert
+    const float C = T * 0.74f;
+    disc(k, C, Colour(0xffffffff), Colour(0xff98a0a4));
+    anisotropicSheen(k, C, 0.28f);
+    bevelRim(k, C, Colour(0x99ffffff), Colour(0x55000000), 0.8f);
+    gloss(k, C, 0.20f);
+    // Black index mark
+    line(k, C * 0.12f, T * 0.80f, k.r * 0.065f, Colour(0xff0c0e10), k.a);
 }
 
 // Rd: round black body with a coloured cap and tick ring.
 inline void drawRd(const Ctx& k) {
     dots(k, 0.95f, 11, k.r * 0.045f, k.accent.brighter(0.4f));
     const float R = k.r * 0.84f, C = R * 0.60f;
-    shadow(k, R);
+    const float elev = k.r * 0.035f;
+    shadow(k, R, 1.15f);
+    barrelWall(k, R, R * 0.95f, elev * 2.0f, Colour(0xff45484c), Colour(0xff090a0c));
     disc(k, R, Colour(0xff3d3f43), Colour(0xff09090a));
-    flutes(k, R * 0.74f, R * 0.98f, 36, Colour(0xff060607), Colour(0xff4b4d51), 1.4f);
-    rim(k, R, Colour(0xff000000));
-    disc(k, C, k.accent.brighter(0.25f), k.accent.darker(0.45f));
-    rim(k, C, k.accent.darker(0.75f));
-    gloss(k, C, 0.2f);
-    line(k, R * 0.66f, R * 0.96f, k.r * 0.07f, Colour(0xfff1efe6), k.a);
+    flutes(k, R * 0.74f, R * 0.98f, 36, Colour(0xff060607), Colour(0xff52555a), 1.5f);
+    bevelRim(k, R, Colour(0x60ffffff), Colour(0xff000000), 1.0f);
+    disc(k, C, k.accent.brighter(0.28f), k.accent.darker(0.45f));
+    bevelRim(k, C, k.accent.brighter(0.65f), k.accent.darker(0.85f), 1.0f);
+    gloss(k, C, 0.26f);
+    line(k, R * 0.64f, R * 0.98f, k.r * 0.07f, Colour(0xfff1efe6), k.a);
 }
 
-// Ptr: flat-top tapered aluminium pointer knob.
+// Ptr: Flat-top tapered silver pointer knob with a clean dark line
 inline void drawPtr(const Ctx& k) {
     auto& g = k.g;
     dots(k, 0.95f, 11, k.r * 0.035f, Colour(0xffc7ccce));
     const float R = k.r * 0.60f;
-    shadow(k, R);
-    auto body = wedge(k, R * 0.95f, k.r * 0.90f, k.r * 0.26f, k.a);
-    g.setGradientFill(juce::ColourGradient(Colour(0xfff4f6f6), k.c.x - R, k.c.y - R, Colour(0xff7c8387), k.c.x + R, k.c.y + R, false));
-    g.fillPath(body);
-    g.setColour(Colour(0xff2f3538));
-    g.strokePath(body, juce::PathStrokeType(0.7f));
-    g.setGradientFill(juce::ColourGradient(Colour(0xfff4f6f6), k.c.x - R, k.c.y - R, Colour(0xff7c8387), k.c.x + R, k.c.y + R, false));
-    g.fillEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2);
-    g.setColour(Colour(0xff2f3538));
-    g.drawEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2, 0.7f);
+    shadow(k, R, 1.15f);
+    juce::Path p;
+    p.addEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2);
+    p.addPath(wedge(k, R * 0.95f, k.r * 0.90f, k.r * 0.26f, k.a));
+    // Subtle drop shadow under pointer
+    g.setColour(Colour(0x35000000));
+    g.fillPath(p, juce::AffineTransform::translation(0.5f, 0.8f));
+    // Fully opaque solid metal pointer body
+    g.setGradientFill(juce::ColourGradient(Colour(0xfff6f8f8), k.c.x - R * 0.707f, k.c.y - R * 0.707f,
+                                           Colour(0xff757d82), k.c.x + R * 0.707f, k.c.y + R * 0.707f, false));
+    g.fillPath(p);
+    // Beveled highlight and dark rim
+    g.setGradientFill(juce::ColourGradient(Colour(0x88ffffff), k.c.x - R * 0.707f, k.c.y - R * 0.707f,
+                                           Colour(0x66000000), k.c.x + R * 0.707f, k.c.y + R * 0.707f, false));
+    g.strokePath(p, juce::PathStrokeType(0.9f));
+    g.setColour(Colour(0xff222528));
+    g.strokePath(p, juce::PathStrokeType(0.6f));
     gloss(k, R, 0.18f);
+    // Dark pointer line
     line(k, R * 0.05f, k.r * 0.86f, k.r * 0.07f, k.accent.darker(0.6f), k.a);
 }
 
@@ -323,14 +482,12 @@ inline void drawDm(const Ctx& k) {
     auto& g = k.g;
     dots(k, 0.95f, 11, k.r * 0.04f, Colour(0xff9aa3a6));
     const float R = k.r * 0.80f;
-    shadow(k, R);
-    g.setGradientFill(juce::ColourGradient(k.accent.brighter(0.7f), k.c.x - R * 0.35f, k.c.y - R * 0.45f,
-                                           k.accent.darker(0.75f), k.c.x + R, k.c.y + R, true));
-    g.fillEllipse(k.c.x - R, k.c.y - R, R * 2, R * 2);
-    rim(k, R, k.accent.darker(0.8f), 1.0f);
-    gloss(k, R, 0.34f);
+    shadow(k, R, 1.2f);
+    disc(k, R, k.accent.brighter(0.55f), k.accent.darker(0.70f));
+    bevelRim(k, R, k.accent.brighter(0.85f), k.accent.darker(0.90f), 1.1f);
+    gloss(k, R, 0.38f);
     auto p = at(k, k.a, R * 0.68f);
-    const float d = k.r * 0.14f;
+    const float d = k.r * 0.15f;
     g.setColour(Colour(0x66000000));
     g.fillEllipse(p.x - d * 0.5f + 0.6f, p.y - d * 0.5f + 0.8f, d, d);
     g.setColour(Colour(0xfffaf7ea));
@@ -341,23 +498,20 @@ inline void drawDm(const Ctx& k) {
 inline void drawSq(const Ctx& k) {
     auto& g = k.g;
     const float S = k.r * 0.78f;
-    shadow(k, S * 1.1f);
+    shadow(k, S * 1.1f, 1.2f);
     g.saveState();
     g.addTransform(juce::AffineTransform::rotation(k.a, k.c.x, k.c.y));
     auto outer = juce::Rectangle<float>(S * 2, S * 2).withCentre(k.c);
-    g.setGradientFill(juce::ColourGradient(Colour(0xff3b3d41), outer.getX(), outer.getY(), Colour(0xff080809), outer.getRight(), outer.getBottom(), false));
+    g.setGradientFill(juce::ColourGradient(Colour(0xff42454a), outer.getX(), outer.getY(), Colour(0xff090a0c), outer.getRight(), outer.getBottom(), false));
     g.fillRoundedRectangle(outer, S * 0.28f);
     g.setColour(Colour(0xff000000));
     g.drawRoundedRectangle(outer, S * 0.28f, 1.0f);
     auto top = outer.reduced(S * 0.20f);
-    g.setGradientFill(juce::ColourGradient(Colour(0xff0d0e10), top.getX(), top.getY(), Colour(0xff2d2f33), top.getRight(), top.getBottom(), false));
+    g.setGradientFill(juce::ColourGradient(Colour(0xff0e1012), top.getX(), top.getY(), Colour(0xff32353a), top.getRight(), top.getBottom(), false));
     g.fillRoundedRectangle(top, S * 0.2f);
-    g.setColour(Colour(0x30ffffff));
+    g.setColour(Colour(0x40ffffff));
     g.drawRoundedRectangle(top, S * 0.2f, 0.8f);
-    g.setColour(Colour(0x66000000));
-    g.drawLine(k.c.x + 0.6f, k.c.y - S * 0.1f + 0.8f, k.c.x + 0.6f, k.c.y - S * 0.84f + 0.8f, k.r * 0.09f);
-    g.setColour(k.accent);
-    g.drawLine(k.c.x, k.c.y - S * 0.1f, k.c.x, k.c.y - S * 0.84f, k.r * 0.09f);
+    line(k, S * 0.1f, S * 0.84f, k.r * 0.08f, k.accent, 0.0f);
     g.restoreState();
 }
 
@@ -450,122 +604,141 @@ inline void drawCyb(const Ctx& k) {
     g.fillEllipse(tip.x - k.r * 0.06f, tip.y - k.r * 0.06f, k.r * 0.12f, k.r * 0.12f);
 }
 
-// ---- Batch 3 ----------------------------------------------------------
 inline void drawFat(const Ctx& k) {
     const float R = k.r * 0.90f;
-    shadow(k, R);
-    disc(k, R, Colour(0xff3c3d40), Colour(0xff050506));
-    flutes(k, R * 0.80f, R * 0.99f, 40, Colour(0xff050506), Colour(0xff55575b), 1.4f);
-    disc(k, R * 0.74f, Colour(0xff2d2e30), Colour(0xff09090a));
-    rim(k, R * 0.74f, Colour(0x30ffffff));
+    shadow(k, R, 1.2f);
+    // Dark cylindrical base skirt with clean flutes
+    disc(k, R, Colour(0xff3c3d40), Colour(0xff060708));
+    flutes(k, R * 0.78f, R * 0.99f, 40, Colour(0xff050506), Colour(0xff55585d), 1.4f);
+    bevelRim(k, R, Colour(0x60ffffff), Colour(0xff000000), 1.0f);
+    const float T = R * 0.74f;
+    disc(k, T, Colour(0xff2d2e30), Colour(0xff09090a));
+    bevelRim(k, T, Colour(0x40ffffff), Colour(0x88000000), 0.9f);
+    gloss(k, T, 0.25f);
+    // Thick white/accent pointer running to edge
     line(k, R * 0.08f, R * 0.97f, k.r * 0.11f, k.accent, k.a);
 }
 inline void drawPag(const Ctx& k) {
     auto& g = k.g;
     const float R = k.r * 0.88f;
-    shadow(k, R);
+    shadow(k, R, 1.2f);
     juce::Path oct;
     for (int i = 0; i < 8; ++i) {
         auto p = at(k, k.a + (float(i) + 0.5f) * pi / 4.0f, R);
         i == 0 ? oct.startNewSubPath(p) : oct.lineTo(p);
     }
     oct.closeSubPath();
-    g.setGradientFill(juce::ColourGradient(Colour(0xff414246), k.c.x - R, k.c.y - R, Colour(0xff050506), k.c.x + R, k.c.y + R, false));
+    g.setGradientFill(juce::ColourGradient(Colour(0xff4a4c50), k.c.x - R, k.c.y - R, Colour(0xff070809), k.c.x + R, k.c.y + R, false));
     g.fillPath(oct);
-    g.setColour(Colour(0x44ffffff));
-    g.strokePath(oct, juce::PathStrokeType(0.8f));
-    flutes(k, R * 0.62f, R * 0.84f, 32, Colour(0xff050506), Colour(0xff4a4c50), 1.5f);
+    g.setColour(Colour(0x55ffffff));
+    g.strokePath(oct, juce::PathStrokeType(1.0f));
+    flutes(k, R * 0.62f, R * 0.84f, 32, Colour(0xff060708), Colour(0xff55585d), 1.6f);
     disc(k, R * 0.56f, Colour(0xff3a3b3e), Colour(0xff060607));
+    bevelRim(k, R * 0.56f, Colour(0x40ffffff), Colour(0xff000000), 0.9f);
     gloss(k, R * 0.56f, 0.28f);
-    line(k, R * 0.30f, R * 0.54f, k.r * 0.07f, k.accent, k.a);
+    line(k, R * 0.20f, R * 0.96f, k.r * 0.075f, k.accent, k.a);
 }
 inline void drawLvr(const Ctx& k) {
     auto& g = k.g;
     dots(k, 0.95f, 11, k.r * 0.04f, Colour(0xffc7ccce));
-    shadow(k, k.r * 0.5f);
+    shadow(k, k.r * 0.5f, 1.25f);
     g.saveState();
     g.addTransform(juce::AffineTransform::rotation(k.a, k.c.x, k.c.y));
     auto bar = juce::Rectangle<float>(k.r * 0.34f, k.r * 1.30f).withCentre({k.c.x, k.c.y - k.r * 0.28f});
-    g.setGradientFill(juce::ColourGradient(Colour(0xff4c4d51), bar.getX(), 0, Colour(0xff050506), bar.getRight(), 0, false));
+    g.setGradientFill(juce::ColourGradient(Colour(0xff52555a), bar.getX(), 0, Colour(0xff08090a), bar.getRight(), 0, false));
     g.fillRoundedRectangle(bar, k.r * 0.08f);
-    g.setColour(Colour(0x40ffffff));
-    g.drawRoundedRectangle(bar, k.r * 0.08f, 0.7f);
+    g.setColour(Colour(0x50ffffff));
+    g.drawRoundedRectangle(bar, k.r * 0.08f, 0.8f);
     g.setColour(k.accent);
-    g.fillRect(juce::Rectangle<float>(k.r * 0.08f, k.r * 0.32f).withCentre({k.c.x, k.c.y - k.r * 0.74f}));
+    g.fillRect(juce::Rectangle<float>(k.r * 0.09f, k.r * 0.34f).withCentre({k.c.x, k.c.y - k.r * 0.74f}));
     g.restoreState();
-    disc(k, k.r * 0.30f, Colour(0xff3e3f43), Colour(0xff060607));
-    rim(k, k.r * 0.30f, Colour(0x44ffffff));
+    disc(k, k.r * 0.32f, Colour(0xff45484c), Colour(0xff08090a));
+    bevelRim(k, k.r * 0.32f, Colour(0x66ffffff), Colour(0x88000000), 1.0f);
 }
 inline void drawTab(const Ctx& k) {
     auto& g = k.g;
     dots(k, 0.95f, 11, k.r * 0.04f, Colour(0xffc7ccce));
-    const float R = k.r * 0.50f;
-    shadow(k, R);
-    auto body = wedge(k, R * 0.5f, k.r * 0.92f, k.r * 0.10f, k.a);
-    g.setGradientFill(juce::ColourGradient(Colour(0xff4a4b4f), k.c.x - R, k.c.y - R, Colour(0xff060607), k.c.x + R, k.c.y + R, false));
+    const float R = k.r * 0.52f;
+    shadow(k, R, 1.15f);
+    auto body = wedge(k, R * 0.5f, k.r * 0.94f, k.r * 0.12f, k.a);
+    g.setGradientFill(juce::ColourGradient(Colour(0xff52555a), k.c.x - R, k.c.y - R, Colour(0xff08090a), k.c.x + R, k.c.y + R, false));
     g.fillPath(body);
-    disc(k, R, Colour(0xff4a4b4f), Colour(0xff060607));
-    rim(k, R, Colour(0x44ffffff));
-    line(k, R * 0.2f, k.r * 0.88f, k.r * 0.05f, k.accent, k.a);
+    disc(k, R, Colour(0xff52555a), Colour(0xff08090a));
+    bevelRim(k, R, Colour(0x55ffffff), Colour(0x88000000), 1.0f);
+    line(k, R * 0.15f, k.r * 0.90f, k.r * 0.06f, k.accent, k.a);
 }
 inline void drawWh(const Ctx& k) {
     const float R = k.r * 0.86f, C = R * 0.64f;
-    shadow(k, R);
-    disc(k, R, Colour(0xff3a3b3e), Colour(0xff060607));
-    flutes(k, R * 0.74f, R * 0.99f, 44, Colour(0xff060607), Colour(0xff55575b), 1.3f);
-    disc(k, C, Colour(0xfffbfbfa), Colour(0xff9ea3a5));
-    rim(k, C, Colour(0xff2c3033));
-    gloss(k, C, 0.15f);
+    shadow(k, R, 1.2f);
+    disc(k, R, Colour(0xff3f4145), Colour(0xff060708));
+    flutes(k, R * 0.72f, R * 0.99f, 48, Colour(0xff050506), Colour(0xff606468), 1.4f);
+    bevelRim(k, R, Colour(0x60ffffff), Colour(0xff000000), 1.0f);
+    disc(k, C, Colour(0xfffdfdfc), Colour(0xff989da0));
+    bevelRim(k, C, Colour(0x99ffffff), Colour(0x66000000), 0.9f);
+    gloss(k, C, 0.18f);
     line(k, 0.0f, C * 0.96f, k.r * 0.07f, k.accent.darker(0.6f), k.a);
 }
 inline void drawKnl(const Ctx& k) {
     auto& g = k.g;
     const float R = k.r * 0.86f, C = R * 0.70f;
-    shadow(k, R);
-    disc(k, R, Colour(0xff35363a), Colour(0xff050506));
-    flutes(k, R * 0.70f, R * 0.99f, 64, Colour(0xff050506), Colour(0xff5a5c60), 1.2f);
-    disc(k, C, Colour(0xfffcfdfd), Colour(0xff8f969a));
-    g.setColour(Colour(0x14000000));
-    for (int i = 1; i <= 5; ++i) {
-        const float e = C * float(i) / 5.0f;
+    shadow(k, R, 1.2f);
+    disc(k, R, Colour(0xff383a3e), Colour(0xff060708));
+    flutes(k, R * 0.68f, R * 0.99f, 64, Colour(0xff050506), Colour(0xff65686d), 1.3f);
+    bevelRim(k, R, Colour(0x60ffffff), Colour(0xff000000), 1.0f);
+    grubScrew(k, k.c + Point<float>(R * 0.62f, R * 0.60f), k.r * 0.048f, 0.785f, Colour(0xff383d42));
+    disc(k, C, Colour(0xffffffff), Colour(0xff8a9296));
+    anisotropicSheen(k, C, 0.28f);
+    g.setColour(Colour(0x18000000));
+    for (int i = 1; i <= 6; ++i) {
+        const float e = C * float(i) / 6.2f;
         g.drawEllipse(k.c.x - e, k.c.y - e, e * 2, e * 2, 0.5f);
     }
-    rim(k, C, Colour(0xff2c3033));
-    line(k, C * 0.10f, C * 0.96f, k.r * 0.07f, k.accent.darker(0.4f), k.a);
+    bevelRim(k, C, Colour(0xaaffffff), Colour(0x66000000), 0.9f);
+    line(k, C * 0.08f, C * 0.96f, k.r * 0.07f, k.accent.darker(0.4f), k.a);
 }
 inline void drawSkt(const Ctx& k) {
     dots(k, 0.95f, 11, k.r * 0.04f, Colour(0xffc7ccce));
-    const float R = k.r * 0.86f;
-    shadow(k, R);
-    disc(k, R, Colour(0xff3a3b3e), Colour(0xff060607));
-    flutes(k, R * 0.88f, R * 0.99f, 48, Colour(0xff050506), Colour(0xff4a4c50), 1.0f);
-    disc(k, R * 0.78f, Colour(0xff2a2b2d), Colour(0xff0a0a0b));
-    rim(k, R * 0.78f, Colour(0x2affffff));
-    line(k, R * 0.32f, R * 0.99f, k.r * 0.08f, k.accent, k.a);
+    const float R = k.r * 0.88f;
+    const float elev = k.r * 0.035f;
+    shadow(k, R, 1.25f);
+    barrelWall(k, R, R * 0.95f, elev * 2.0f, Colour(0xff45484c), Colour(0xff08090a));
+    disc(k, R, Colour(0xff3a3c3e), Colour(0xff060607));
+    flutes(k, R * 0.84f, R * 0.99f, 48, Colour(0xff050506), Colour(0xff55585d), 1.2f);
+    bevelRim(k, R, Colour(0x60ffffff), Colour(0xff000000), 1.1f);
+    grubScrew(k, k.c + Point<float>(R * 0.62f, R * 0.60f), k.r * 0.048f, 0.785f, Colour(0xff42464a));
+    const float C = R * 0.76f;
+    disc(k, C, Colour(0xff2a2b2d), Colour(0xff0a0a0b));
+    bevelRim(k, C, Colour(0x40ffffff), Colour(0x88000000), 0.9f);
+    gloss(k, C, 0.20f);
+    line(k, R * 0.25f, R * 0.99f, k.r * 0.075f, k.accent, k.a);
 }
 inline void drawRib(const Ctx& k) {
     const float R = k.r * 0.88f;
-    shadow(k, R);
-    disc(k, R, k.accent.brighter(0.2f), k.accent.darker(0.6f));
-    flutes(k, R * 0.62f, R * 0.98f, 34, k.accent.darker(0.7f), k.accent.brighter(0.5f), 1.8f);
-    disc(k, R * 0.58f, k.accent.brighter(0.15f), k.accent.darker(0.5f));
-    rim(k, R * 0.58f, k.accent.darker(0.8f));
-    gloss(k, R * 0.58f, 0.18f);
+    const float elev = k.r * 0.035f;
+    shadow(k, R, 1.2f);
+    barrelWall(k, R, R * 0.95f, elev * 2.0f, k.accent.brighter(0.2f), k.accent.darker(0.7f));
+    disc(k, R, k.accent.brighter(0.25f), k.accent.darker(0.6f));
+    flutes(k, R * 0.60f, R * 0.98f, 36, k.accent.darker(0.75f), k.accent.brighter(0.55f), 2.0f);
+    bevelRim(k, R, k.accent.brighter(0.7f), k.accent.darker(0.85f), 1.1f);
+    const float C = R * 0.58f;
+    disc(k, C, k.accent.brighter(0.18f), k.accent.darker(0.5f));
+    bevelRim(k, C, k.accent.brighter(0.6f), k.accent.darker(0.8f), 0.9f);
+    gloss(k, C, 0.24f);
     line(k, R * 0.10f, R * 0.54f, k.r * 0.07f, Colour(0xfff7f4e8), k.a);
 }
 inline void drawChr(const Ctx& k) {
     auto& g = k.g;
     dots(k, 0.95f, 21, k.r * 0.04f, Colour(0xffe9eef2));
-    const float R = k.r * 0.82f, C = R * 0.66f;
-    shadow(k, R);
-    disc(k, R, Colour(0xfffdfdfd), Colour(0xff52585c));
+    const float R = k.r * 0.84f, C = R * 0.68f;
+    shadow(k, R, 1.25f);
+    disc(k, R, Colour(0xffffffff), Colour(0xff454a4e));
     g.setColour(Colour(0x55000000));
     g.drawEllipse(k.c.x - R * 0.9f, k.c.y - R * 0.9f, R * 1.8f, R * 1.8f, 1.2f);
-    rim(k, R, Colour(0xff25292b));
-    disc(k, C, Colour(0xff4a4c50), Colour(0xff030304));
-    rim(k, C, Colour(0xff000000));
-    gloss(k, C, 0.45f);
-    line(k, C * 0.10f, R * 0.96f, k.r * 0.065f, Colour(0xfff5f2e6), k.a);
+    bevelRim(k, R, Colour(0xffffffff), Colour(0xff181a1c), 1.2f);
+    disc(k, C, Colour(0xff55585d), Colour(0xff020203));
+    bevelRim(k, C, Colour(0x77ffffff), Colour(0xff000000), 1.0f);
+    gloss(k, C, 0.55f);
+    line(k, C * 0.08f, R * 0.98f, k.r * 0.065f, Colour(0xfff5f2e6), k.a);
 }
 inline void arcStroke(const Ctx& k, float rad, float from, float to, float w, Colour col) {
     if (to <= from + 0.001f) return;
@@ -675,41 +848,66 @@ inline void drawKey(const Ctx& k) {
     line(k, R * 0.10f, R * 0.66f, k.r * 0.09f, k.accent, k.a);
 }
 inline void drawBrz(const Ctx& k) {
-    const float R = k.r * 0.84f, T = R * 0.76f;
-    shadow(k, R);
+    const float R = k.r * 0.86f, T = R * 0.74f;
+    const float elev = k.r * 0.035f;
+    shadow(k, R, 1.2f);
+    barrelWall(k, R, R * 0.95f, elev * 2.0f, Colour(0xffd4aa55), Colour(0xff452d0a));
     disc(k, R, Colour(0xfff3d684), Colour(0xff6f4d14));
-    flutes(k, R * 0.82f, R * 0.99f, 56, Colour(0xff5a3d0e), Colour(0xfffbe9a8), 1.1f);
-    rim(k, R, Colour(0xff3d2907));
+    flutes(k, R * 0.78f, R * 0.99f, 56, Colour(0xff4a320c), Colour(0xfffbe9a8), 1.2f);
+    bevelRim(k, R, Colour(0x88ffffff), Colour(0x77000000), 1.1f);
+    grubScrew(k, k.c + Point<float>(R * 0.62f, R * 0.60f), k.r * 0.048f, 0.785f, Colour(0xffc89e3a));
     disc(k, T, Colour(0xfffff0b4), Colour(0xff9a7122));
-    rim(k, T, Colour(0x66ffffff));
-    gloss(k, T, 0.25f);
-    line(k, T * 0.1f, T * 0.96f, k.r * 0.07f, k.accent.darker(0.7f), k.a);
+    anisotropicSheen(k, T, 0.30f);
+    bevelRim(k, T, Colour(0x88ffffff), Colour(0x55000000), 0.9f);
+    gloss(k, T, 0.22f);
+    line(k, T * 0.08f, T * 0.96f, k.r * 0.065f, k.accent.darker(0.7f), k.a);
 }
+// Chk: Vintage chickenhead selector with 3D faceted ridge, brass grub screw, illuminated crest and enamel line
 inline void drawChk(const Ctx& k) {
     auto& g = k.g;
     dots(k, 0.95f, 11, k.r * 0.04f, Colour(0xffc7ccce));
-    const float R = k.r * 0.58f;
-    shadow(k, R);
-    auto body = wedge(k, R * 0.96f, k.r * 0.92f, k.r * 0.22f, k.a);
-    g.setGradientFill(juce::ColourGradient(Colour(0xff4c4d51), k.c.x - R, k.c.y - R, Colour(0xff050506), k.c.x + R, k.c.y + R, false));
-    g.fillPath(body);
-    g.setColour(Colour(0x44ffffff));
-    g.strokePath(body, juce::PathStrokeType(0.7f));
-    disc(k, R, Colour(0xff4c4d51), Colour(0xff050506));
-    rim(k, R, Colour(0x33ffffff));
-    gloss(k, R, 0.22f);
-    line(k, R * 0.05f, k.r * 0.88f, k.r * 0.06f, k.accent, k.a);
+    const float R = k.r * 0.60f;
+    const auto v = dir(k.a);
+    const Point<float> n(-v.y, v.x);
+    auto body = wedge(k, R * 0.96f, k.r * 0.95f, k.r * 0.20f, k.a);
+    shadow(k, R, 1.15f);
+    g.setColour(Colour(0x35000000));
+    g.fillPath(body, juce::AffineTransform::translation(0.5f, 0.8f));
+    // Faceted chickenhead beak: lit face + shadow face
+    juce::Path litHalf, shHalf;
+    litHalf.startNewSubPath(k.c);
+    litHalf.lineTo(k.c + v * k.r * 0.95f);
+    litHalf.lineTo(k.c + v * k.r * 0.90f - n * k.r * 0.18f);
+    litHalf.lineTo(k.c - n * R * 0.94f);
+    litHalf.closeSubPath();
+    shHalf.startNewSubPath(k.c);
+    shHalf.lineTo(k.c + v * k.r * 0.95f);
+    shHalf.lineTo(k.c + v * k.r * 0.90f + n * k.r * 0.18f);
+    shHalf.lineTo(k.c + n * R * 0.94f);
+    shHalf.closeSubPath();
+    g.setGradientFill(juce::ColourGradient(Colour(0xff4c5054), k.c.x - R, k.c.y - R, Colour(0xff121416), k.c.x + R, k.c.y + R, false));
+    g.fillPath(litHalf);
+    g.setGradientFill(juce::ColourGradient(Colour(0xff222528), k.c.x - R, k.c.y - R, Colour(0xff060708), k.c.x + R, k.c.y + R, false));
+    g.fillPath(shHalf);
+    disc(k, R, Colour(0xff3e4246), Colour(0xff08090a));
+    bevelRim(k, R, Colour(0x55ffffff), Colour(0x88000000), 1.0f);
+    gloss(k, R, 0.28f);
+    // Grub screw on the skirt
+    grubScrew(k, k.c + Point<float>(R * 0.65f, R * 0.58f), k.r * 0.052f, 0.785f, Colour(0xffbf9a4c));
+    // White enamel line running along crest
+    line(k, R * 0.05f, k.r * 0.92f, k.r * 0.065f, k.accent.getPerceivedBrightness() > 0.3f ? k.accent : Colour(0xfff7f5eb), k.a);
 }
+// Ivr: Vintage cream bakelite fluted knob with aged patina and dark pointer
 inline void drawIvr(const Ctx& k) {
     const float R = k.r * 0.86f, T = R * 0.74f;
-    shadow(k, R);
+    shadow(k, R, 1.15f);
     disc(k, R, Colour(0xfff6efd8), Colour(0xffa89c76));
     flutes(k, R * 0.76f, R * 0.99f, 36, Colour(0xff857a58), Colour(0xfffffbea), 1.4f);
-    rim(k, R, Colour(0xff4d4630));
+    bevelRim(k, R, Colour(0x88ffffff), Colour(0x4d4630), 1.0f);
     disc(k, T, Colour(0xfffaf4de), Colour(0xffc2b78f));
-    rim(k, T, Colour(0x66ffffff));
-    gloss(k, T, 0.2f);
-    line(k, T * 0.1f, T * 0.96f, k.r * 0.07f, k.accent.darker(0.7f), k.a);
+    bevelRim(k, T, Colour(0x77ffffff), Colour(0x55000000), 0.9f);
+    gloss(k, T, 0.22f);
+    line(k, T * 0.10f, T * 0.96f, k.r * 0.07f, k.accent.darker(0.7f), k.a);
 }
 inline void drawLed(const Ctx& k) {
     auto& g = k.g;
@@ -728,25 +926,30 @@ inline void drawLed(const Ctx& k) {
         g.fillEllipse(p.x - d * 0.5f, p.y - d * 0.5f, d, d);
     }
     const float R = k.r * 0.66f;
-    shadow(k, R);
+    shadow(k, R, 1.15f);
     disc(k, R, Colour(0xff35373b), Colour(0xff060607));
-    flutes(k, R * 0.88f, R * 0.99f, 40, Colour(0xff060607), Colour(0xff2f3134), 0.8f);
-    rim(k, R, Colour(0xff000000));
-    line(k, R * 0.14f, R * 0.84f, k.r * 0.07f, Colour(0xfff1efe6), k.a);
+    flutes(k, R * 0.84f, R * 0.99f, 40, Colour(0xff060607), Colour(0xff45484c), 1.1f);
+    bevelRim(k, R, Colour(0x55ffffff), Colour(0xff000000), 1.0f);
+    line(k, R * 0.10f, R * 0.90f, k.r * 0.075f, Colour(0xfff1efe6), k.a);
 }
+// Dbl: Dual-concentric stacked knob: fluted aluminium ring, upper elevated knob with single pointer line
 inline void drawDbl(const Ctx& k) {
     const float R = k.r * 0.90f, I = R * 0.52f;
-    shadow(k, R);
+    shadow(k, R, 1.15f);
+    // Lower knob: fluted aluminium ring
     disc(k, R, Colour(0xfff2f4f4), Colour(0xff5d6367));
-    flutes(k, R * 0.80f, R * 0.99f, 48, Colour(0xff4b5155), Colour(0xffe9ecee), 1.1f);
-    rim(k, R, Colour(0xff2a2f32));
-    line(k, I * 1.05f, R * 0.96f, k.r * 0.06f, Colour(0xff15181a), k.a);
-    shadow(k, I);
+    flutes(k, R * 0.78f, R * 0.99f, 48, Colour(0xff4b5155), Colour(0xffe9ecee), 1.2f);
+    bevelRim(k, R, Colour(0x88ffffff), Colour(0x66000000), 1.0f);
+    // Upper knob: elevated above lower knob with soft contact shadow
+    shadow(k, I, 1.05f);
     disc(k, I, Colour(0xff3e4044), Colour(0xff050506));
-    flutes(k, I * 0.7f, I * 0.98f, 28, Colour(0xff050506), Colour(0xff5a5c60), 1.0f);
+    flutes(k, I * 0.72f, I * 0.98f, 28, Colour(0xff050506), Colour(0xff5a5c60), 1.1f);
+    bevelRim(k, I, Colour(0x55ffffff), Colour(0xff000000), 0.9f);
     disc(k, I * 0.62f, k.accent.brighter(0.2f), k.accent.darker(0.5f));
-    rim(k, I * 0.62f, k.accent.darker(0.8f));
-    line(k, 0.0f, I * 0.58f, k.r * 0.05f, Colour(0xfff7f4e8), k.a);
+    bevelRim(k, I * 0.62f, k.accent.brighter(0.6f), k.accent.darker(0.8f), 0.8f);
+    gloss(k, I * 0.62f, 0.20f);
+    // Single clean pointer line across the upper knob
+    line(k, 0.0f, I * 0.58f, k.r * 0.055f, Colour(0xfff7f4e8), k.a);
 }
 inline void drawMini(const Ctx& k) {
     dots(k, 0.92f, 11, k.r * 0.05f, Colour(0xffc7ccce));
@@ -836,50 +1039,60 @@ inline void drawEbn(const Ctx& k) {
 inline void drawWnt(const Ctx& k) {
     auto& g = k.g;
     dots(k, 0.96f, 21, k.r * 0.04f, Colour(0xffe9eef2));
-    const float R = k.r * 0.82f, W = R * 0.78f;
-    shadow(k, R);
-    disc(k, R, Colour(0xfffcfdfd), Colour(0xff535a5e)); rim(k, R, Colour(0xff25292b));
-    g.setColour(Colour(0x55000000)); g.drawEllipse(k.c.x - R * 0.90f, k.c.y - R * 0.90f, R * 1.8f, R * 1.8f, 1.0f);
+    const float R = k.r * 0.86f, W = R * 0.74f;
+    const float elev = k.r * 0.035f;
+    shadow(k, R, 1.2f);
+    barrelWall(k, R, R * 0.95f, elev * 2.0f, Colour(0xffeef2f4), Colour(0xff454d52));
+    disc(k, R, Colour(0xffffffff), Colour(0xff555c61));
+    bevelRim(k, R, Colour(0xffffffff), Colour(0xff181a1c), 1.2f);
+    grubScrew(k, k.c + Point<float>(R * 0.64f, R * 0.58f), k.r * 0.05f, 0.785f, Colour(0xff3a3f44));
     disc(k, W, Colour(0xff9a6a3e), Colour(0xff3a2210));
-    g.saveState(); juce::Path clip; clip.addEllipse(k.c.x - W, k.c.y - W, W * 2, W * 2); g.reduceClipRegion(clip, {});
-    g.addTransform(juce::AffineTransform::rotation(k.a, k.c.x, k.c.y)); g.setColour(Colour(0x40201008));
-    for (int i = -5; i <= 5; ++i) { juce::Path grain; for (int s2 = 0; s2 <= 16; ++s2) { const float x = k.c.x - W + W * 2 * float(s2) / 16.0f, y = k.c.y + float(i) * W * 0.17f + std::sin(float(s2) * 0.6f + float(i)) * W * 0.05f; s2 == 0 ? grain.startNewSubPath(x, y) : grain.lineTo(x, y); } g.strokePath(grain, juce::PathStrokeType(0.8f)); }
+    g.saveState();
+    juce::Path clip; clip.addEllipse(k.c.x - W, k.c.y - W, W * 2, W * 2); g.reduceClipRegion(clip, {});
+    g.addTransform(juce::AffineTransform::rotation(k.a, k.c.x, k.c.y));
+    g.setColour(Colour(0x40201008));
+    for (int i = -5; i <= 5; ++i) {
+        juce::Path grain;
+        for (int s2 = 0; s2 <= 16; ++s2) {
+            const float x = k.c.x - W + W * 2 * float(s2) / 16.0f;
+            const float y = k.c.y + float(i) * W * 0.17f + std::sin(float(s2) * 0.6f + float(i)) * W * 0.05f;
+            s2 == 0 ? grain.startNewSubPath(x, y) : grain.lineTo(x, y);
+        }
+        g.strokePath(grain, juce::PathStrokeType(0.8f));
+    }
     g.restoreState();
-    rim(k, W, Colour(0x55ffffff)); gloss(k, W, 0.22f);
-    line(k, W * 0.12f, W * 0.94f, k.r * 0.065f, k.accent.brighter(0.4f), k.a);
+    bevelRim(k, W, Colour(0x77ffffff), Colour(0x55000000), 0.9f);
+    gloss(k, W, 0.28f);
+    line(k, W * 0.10f, W * 0.94f, k.r * 0.065f, k.accent.brighter(0.4f), k.a);
 }
 
+// Rck: Stillwell "The Rocket" style heavy industrial cast-metal knob: deep knurling, cast shadow, satin lathe cap, grub screw, engraved notch
 inline void drawRck(const Ctx& k) {
     auto& g = k.g;
-    const float R = k.r * 0.86f;
-    // soft contact shadow, a little heavier than the other styles so the knob sits on the panel
-    for (int n = 6; n > 0; --n) {
-        g.setColour(Colour(0x12000000));
-        const float e = R + float(n) * 0.9f;
-        g.fillEllipse(k.c.x - e + 0.8f, k.c.y - e + 2.6f, e * 2, e * 2);
-    }
-    disc(k, R, Colour(0xff2b2c2e), Colour(0xff050506));
-    // fine flutes round the skirt; they turn with the knob like real knurling
-    flutes(k, R * 0.80f, R * 0.995f, 72, Colour(0xff030304), Colour(0xff4a4c50), 0.9f);
-    rim(k, R, Colour(0xff000000), 1.0f);
-    // satin top: radial sheen plus very faint concentric brushing
-    const float T = R * 0.78f;
-    g.setGradientFill(juce::ColourGradient(Colour(0xff4a4b4f), k.c.x - T * 0.35f, k.c.y - T * 0.45f, Colour(0xff0d0d0f), k.c.x + T * 0.7f, k.c.y + T * 0.8f, true));
-    g.fillEllipse(k.c.x - T, k.c.y - T, T * 2, T * 2);
+    const float R = k.r * 0.88f;
+    const float elev = k.r * 0.035f;
+    shadow(k, R, 1.35f);
+    barrelWall(k, R, R * 0.96f, elev * 2.2f, Colour(0xff45484c), Colour(0xff060708));
+    disc(k, R, Colour(0xff323538), Colour(0xff060708));
+    // Heavy knurling flutes around the skirt
+    flutes(k, R * 0.76f, R * 0.995f, 64, Colour(0xff030304), Colour(0xff686d73), 1.6f);
+    bevelRim(k, R, Colour(0x65ffffff), Colour(0xff000000), 1.1f);
+    // Satin top: radial sheen plus concentric micro-lathe grooves
+    const float T = R * 0.74f;
+    disc(k, T, Colour(0xff45484c), Colour(0xff0d0e10));
+    anisotropicSheen(k, T, 0.22f);
     for (int i = 1; i <= 7; ++i) {
-        g.setColour(Colour(i % 2 ? 0x0cffffff : 0x0c000000));
-        const float e = T * float(i) / 7.5f;
+        g.setColour(Colour(i % 2 ? 0x0effffff : 0x12000000));
+        const float e = T * float(i) / 7.2f;
         g.drawEllipse(k.c.x - e, k.c.y - e, e * 2, e * 2, 0.6f);
     }
-    rim(k, T, Colour(0x55000000), 1.0f);
-    g.setColour(Colour(0x22ffffff));
-    g.drawEllipse(k.c.x - T + 0.8f, k.c.y - T + 0.8f, (T - 0.8f) * 2, (T - 0.8f) * 2, 0.7f);
-    // pointer: a bright line from near the middle to the skirt, with a shadow cut
-    const auto col = k.accent.getPerceivedBrightness() > 0.2f ? k.accent : Colour(0xfff2f2f0);
-    g.setColour(Colour(0x99000000));
-    g.drawLine({at(k, k.a, R * 0.16f) + Point<float>(0.7f, 0.9f), at(k, k.a, R * 0.96f) + Point<float>(0.7f, 0.9f)}, k.r * 0.115f);
-    g.setColour(col);
-    g.drawLine({at(k, k.a, R * 0.16f), at(k, k.a, R * 0.96f)}, k.r * 0.085f);
+    bevelRim(k, T, Colour(0x88ffffff), Colour(0x66000000), 1.0f);
+    gloss(k, T, 0.25f);
+    // Machined set screw on skirt
+    grubScrew(k, k.c + Point<float>(R * 0.62f, R * 0.60f), k.r * 0.052f, 0.85f, Colour(0xff4a5056));
+    // Pointer: engraved bright white/tinted line with deep shadow cut
+    const auto col = k.accent.getPerceivedBrightness() > 0.2f ? k.accent : Colour(0xfff6f6f2);
+    line(k, R * 0.12f, R * 0.97f, k.r * 0.075f, col, k.a);
 }
 
 using Drawer = void (*)(const Ctx&);
