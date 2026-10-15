@@ -43,8 +43,13 @@ goodlookinui::juce_adapter::drawKnob(g, knobBounds, normalizedValue, gain, true)
 ```
 
 `knobBounds` is a `juce::Rectangle<float>`; `normalizedValue` is in [0,1].
-Supported styles: `metal`, `bakelite`, `ivory`, `console`. Helpers also draw
-panels, keys and screws. These are drawing helpers, not parameter attachments.
+Knobs are rendered in full procedural 3D hardware styling by default. To render
+in legacy flat 2D vector mode, pass a style with the `flat_` prefix (e.g. `flat_Brit`),
+set `goodlookinui::juce_adapter::useFlatKnobs = true`, or call `drawConsoleKnobFlat()`.
+Supported styles: `Brit`, `N`, `A`, `FS`, `Rd`, `Pie`, `Chr`, `Mtl`, `Bk`, `Ivr`, `Ptr`,
+`Chk`, `Lvr`, `Tab`, and digital/neon varieties. Legacy names `metal`, `bakelite`,
+`ivory`, `console` still load. Helpers also draw panels, keys, switches, meters and screws.
+These are drawing helpers, not parameter attachments.
 The host plugin implements slider interaction and DSP/host automation bindings.
 Plugins that use the toolkit live in their own repositories; none is included here.
 
