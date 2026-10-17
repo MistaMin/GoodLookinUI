@@ -156,7 +156,12 @@ public:
     Studio() {
         for (auto* c : std::vector<juce::Component*>{&selector, &style, &chip, &marksBox, &label, &font, &x, &y, &w, &h, &save, &load, &undo, &status})
             addAndMakeVisible(c);
-        for (int n = 0; n < int(std::size(knobStyles)); ++n) style.addItem(juce::String(knobStyles[n].code) + "  -  " + knobStyles[n].description, n + 1);
+        constexpr int numStyles = int(std::size(knobStyles));
+        style.addSectionHeading("3D Hardware Knobs");
+        for (int n = 0; n < numStyles; ++n) style.addItem(juce::String(knobStyles[n].code) + "  -  " + knobStyles[n].description, n + 1);
+        style.addSeparator();
+        style.addSectionHeading("Flat 2D Vector Knobs");
+        for (int n = 0; n < numStyles; ++n) style.addItem(juce::String("flat_") + knobStyles[n].code + "  -  (Flat) " + knobStyles[n].description, numStyles + n + 1);
         for (auto* t : {&label, &font, &x, &y, &w, &h}) {
             t->setSelectAllWhenFocused(true);
             t->onReturnKey = [this] { edit(); }; t->onFocusLost = [this] { edit(); };
@@ -171,7 +176,7 @@ public:
         undo.onClick = [this] { if (!history.empty()) { restore(history.back(), true); history.pop_back(); } };
         save.onClick = [this] { choose(true); }; load.onClick = [this] { choose(false); };
         selector.setTooltip("Pick a knob here, or click it on the plugin.");
-        style.setTooltip("Knob class. Changes apply immediately.");
+        style.setTooltip("Knob class (3D hardware or flat 2D vector). Changes apply immediately.");
     }
     void paint(juce::Graphics& g) override {
         g.fillAll(juce::Colour(0xff18222c)); g.setColour(juce::Colour(0xffce9435)); g.drawRect(getLocalBounds(), 2);
@@ -206,7 +211,11 @@ private:
         auto n = selector.getSelectedId() - 1; if (n < 0 || n >= int(entries.size())) return;
         busy = true; auto& e = entries[size_t(n)]; auto& i = e.item;
         label.setText(i.label, false); colourHex = i.colour; chip.set(colour(i.colour));
-        if (auto* st = findStyle(i.style)) style.setSelectedId(int(st - knobStyles) + 1, juce::dontSendNotification);
+        if (auto* st = findStyle(i.style)) {
+            constexpr int numStyles = int(std::size(knobStyles));
+            const bool isFlat = (i.style.rfind("flat_", 0) == 0 || i.style == "flat");
+            style.setSelectedId(int(st - knobStyles) + 1 + (isFlat ? numStyles : 0), juce::dontSendNotification);
+        }
         marksBox.setSelectedId(i.marks=="light" ? 2 : i.marks=="dark" ? 3 : 1, juce::dontSendNotification);
         font.setText(juce::String(i.fontSize), false); x.setText(juce::String(i.x), false); y.setText(juce::String(i.y), false);
         w.setText(juce::String(i.width), false); h.setText(juce::String(i.height), false);
@@ -234,7 +243,11 @@ private:
             auto items = snapshot(); auto& i = items.at(size_t(n));
             auto num = [](const juce::TextEditor& t) { auto s = t.getText().toStdString(); size_t end; float v = std::stof(s, &end); if (end != s.size()) throw std::runtime_error("Invalid number"); return v; };
             i.label = label.getText().toStdString(); i.colour = colourHex;
-            if (auto sel = style.getSelectedId(); sel > 0) i.style = knobStyles[sel - 1].code;
+            if (auto sel = style.getSelectedId(); sel > 0) {
+                constexpr int numStyles = int(std::size(knobStyles));
+                if (sel <= numStyles) i.style = knobStyles[sel - 1].code;
+                else if (sel <= numStyles * 2) i.style = std::string("flat_") + knobStyles[sel - numStyles - 1].code;
+            }
             i.marks = marksBox.getSelectedId() == 2 ? "light" : marksBox.getSelectedId() == 3 ? "dark" : "auto";
             i.fontSize = num(font); i.x = num(x); i.y = num(y); i.width = num(w); i.height = num(h); validate(i);
             if (i == entries[size_t(n)].item) return;                    // nothing changed

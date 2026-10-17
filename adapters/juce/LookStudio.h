@@ -26,8 +26,14 @@ public:
             addAndMakeVisible(c);
         for (size_t n = 0; n < sections.size(); ++n) sectionBox.addItem(sections[n].name, int(n) + 1);
         styleBox.addItem("(keep saved knob style)", 1);
-        for (int n = 0; n < int(std::size(knobStyles)); ++n)
+        constexpr int numStyles = int(std::size(knobStyles));
+        styleBox.addSectionHeading("3D Hardware Knobs");
+        for (int n = 0; n < numStyles; ++n)
             styleBox.addItem(juce::String(knobStyles[n].code) + "  -  " + knobStyles[n].description, n + 2);
+        styleBox.addSeparator();
+        styleBox.addSectionHeading("Flat 2D Vector Knobs");
+        for (int n = 0; n < numStyles; ++n)
+            styleBox.addItem(juce::String("flat_") + knobStyles[n].code + "  -  (Flat) " + knobStyles[n].description, numStyles + n + 2);
         for (auto* box : {&plateBox, &faceBox}) {
             box->addItem("(none)", 1);
             int n = 2;
@@ -108,7 +114,13 @@ private:
     }
     static int indexIn(const std::string& code, bool style) {
         if (code.empty()) return 1;
-        if (style) { if (auto* s = goodlookinui::findStyle(code)) return int(s - knobStyles) + 2; }
+        if (style) {
+            if (auto* s = goodlookinui::findStyle(code)) {
+                constexpr int numStyles = int(std::size(knobStyles));
+                const bool isFlat = (code.rfind("flat_", 0) == 0 || code == "flat");
+                return int(s - knobStyles) + 2 + (isFlat ? numStyles : 0);
+            }
+        }
         else if (auto* f = goodlookinui::findFaceplate(code)) return int(f - faceplates) + 2;
         return 1;
     }
@@ -129,7 +141,11 @@ private:
         if (busy || param().empty() || choice().empty()) return;
         Look l; l.parameter = param(); l.choice = choice();
         if (useColour.getToggleState()) l.colour = "#" + chip.get().toDisplayString(false).toStdString();
-        if (auto id = styleBox.getSelectedId(); id > 1) l.style = knobStyles[id - 2].code;
+        if (auto id = styleBox.getSelectedId(); id > 1) {
+            constexpr int numStyles = int(std::size(knobStyles));
+            if (id - 2 < numStyles) l.style = knobStyles[id - 2].code;
+            else if (id - 2 < numStyles * 2) l.style = std::string("flat_") + knobStyles[id - 2 - numStyles].code;
+        }
         if (auto id = plateBox.getSelectedId(); id > 1) l.plate = faceplates[id - 2].code;
         if (auto id = faceBox.getSelectedId(); id > 1) l.faceplate = faceplates[id - 2].code;
         if (!table.set(l)) { say("Invalid look"); return; }

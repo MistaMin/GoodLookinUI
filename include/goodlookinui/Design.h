@@ -73,8 +73,11 @@ inline constexpr StyleInfo knobStyles[] = {
 };
 // Accepts a style code or a legacy name from older design files.
 inline const StyleInfo* findStyle(const std::string& name) {
+    std::string code = name;
+    if (code.rfind("flat_", 0) == 0) code = code.substr(5);
+    else if (code == "flat") code = "Brit";
     for (const auto& s : knobStyles)
-        if (name == s.code || (*s.legacy && name == s.legacy)) return &s;
+        if (code == s.code || (*s.legacy && code == s.legacy)) return &s;
     return nullptr;
 }
 // Whole-UI faceplate looks (colours are 0xAARRGGBB, JUCE-free).
