@@ -102,4 +102,4 @@ Existing CSV designs with the original HardwareUI header can still be loaded. Ne
 
 ## License
 
-GoodLookinUI source code and documentation are released under the [MIT License](LICENSE), copyright 2026 Marcos Deida. This covers the core and JUCE adapter; JUCE and other external dependencies retain their own licenses.
+GoodLookinUI source code and documentation are released under the [MIT License](LICENSE), copyright 2026 Marcos Quirino Deida. This covers the core and JUCE adapter; JUCE and other external dependencies retain their own licenses.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (c) 2026 Marcos Deida
+// Copyright (c) 2026 Marcos Quirino Deida
 // Dependency-free checks for the editable, persistent look table.
 #include <goodlookinui/LookTable.h>
 #include <cassert>

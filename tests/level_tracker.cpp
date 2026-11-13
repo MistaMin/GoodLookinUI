@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (c) 2026 Marcos Deida
+// Copyright (c) 2026 Marcos Quirino Deida
 // JUCE-free checks for the audio-to-UI level tap.
 #include <goodlookinui/LevelTracker.h>
 #include <cassert>

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (c) 2026 Marcos Deida
+// Copyright (c) 2026 Marcos Quirino Deida
 #pragma once
 #include <goodlookinui/Design.h>
 #include <juce_gui_basics/juce_gui_basics.h>

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (c) 2026 Marcos Deida
+// Copyright (c) 2026 Marcos Quirino Deida
 // Gallery app: shows every part the toolkit can draw. `--selftest <folder>` renders each page to a PNG,
 // checks that it is not blank and that animation changes it, then exits (0 = pass).
 #include <juce_gui_basics/juce_gui_basics.h>

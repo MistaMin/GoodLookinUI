@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (c) 2026 Marcos Deida
+// Copyright (c) 2026 Marcos Quirino Deida
 // JUCE-free checks for the spectrum analysis core: accuracy, speed, capture and mapping.
 #include <goodlookinui/Spectrum.h>
 #include <cassert>
