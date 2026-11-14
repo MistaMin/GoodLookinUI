@@ -24,7 +24,7 @@ public:
         holdBox.setButtonText("Peak hold");
         const char* sm[] = {"Smoothing: off", "Smoothing: 1 octave", "Smoothing: 1/3 octave", "Smoothing: 1/6 octave", "Smoothing: 1/12 octave", "Smoothing: 1/24 octave"};
         for (int i = 0; i < 6; ++i) smoothBox.addItem(sm[i], i + 1);
-        mapBox.addItem("Spectrogram: heat map", 1); mapBox.addItem("Spectrogram: range colours", 2);
+        mapBox.addItem("Spectrogram: inferno", 1); mapBox.addItem("Spectrogram: palette shade", 2); mapBox.addItem("Spectrogram: magma", 3); mapBox.addItem("Spectrogram: ice", 4);
         auto slider = [](juce::Slider& s, double lo, double hi, double step, const char* suffix) {
             s.setSliderStyle(juce::Slider::LinearHorizontal); s.setTextBoxStyle(juce::Slider::TextBoxRight, false, 62, 20);
             s.setRange(lo, hi, step); s.setTextValueSuffix(suffix); };
@@ -40,7 +40,7 @@ public:
         note.setText("Colour of each frequency range (click a chip for the wheel)", juce::dontSendNotification);
     }
     void show(const SpectrumSettings& s) {
-        busy = true;
+        busy = true; cur = s;
         onBox.setToggleState(s.on, juce::dontSendNotification); sizeBox.setSelectedId(spectrum::fftSizes[s.sizeIndex], juce::dontSendNotification);
         styleBox.setSelectedId(s.style == SpectrumSettings::Style::Standard ? 1 : s.style == SpectrumSettings::Style::Multicolour ? 2 : s.style == SpectrumSettings::Style::Bars ? 3 : 4, juce::dontSendNotification);
         for (int i = 0; i < 6; ++i) if (SpectrumSettings::smoothingChoices[i] == s.smoothing) smoothBox.setSelectedId(i + 1, juce::dontSendNotification);
@@ -80,7 +80,7 @@ private:
     }
     void push() {
         if (busy || !onChanged) return;
-        SpectrumSettings s;
+        SpectrumSettings s = cur;   // keeps palette, frame, grid, labels and bloom, which this panel does not edit
         s.on = onBox.getToggleState(); s.sizeIndex = 0; for (int i = 0; i < int(std::size(spectrum::fftSizes)); ++i) if (spectrum::fftSizes[i] == sizeBox.getSelectedId()) s.sizeIndex = i;
         const int st = styleBox.getSelectedId(); s.style = st == 2 ? SpectrumSettings::Style::Multicolour : st == 3 ? SpectrumSettings::Style::Bars : st == 4 ? SpectrumSettings::Style::Spectrogram : SpectrumSettings::Style::Standard;
         s.smoothing = SpectrumSettings::smoothingChoices[juce::jlimit(0, 5, smoothBox.getSelectedId() - 1)]; s.spectrogramMap = juce::jmax(0, mapBox.getSelectedId() - 1);
@@ -90,7 +90,7 @@ private:
         onChanged(s);
     }
     juce::ToggleButton onBox, holdBox; juce::ComboBox sizeBox, styleBox, sourceBox, smoothBox, mapBox; juce::Slider tilt, fall, opacity; juce::Label note;
-    ColourChip chips[7], stdChip; juce::Rectangle<int> captionRects[8]; bool busy = false;
+    SpectrumSettings cur; ColourChip chips[7], stdChip; juce::Rectangle<int> captionRects[8]; bool busy = false;
 };
 
 } // namespace goodlookinui::juce_adapter

@@ -56,3 +56,12 @@ auto card = goodlookinui::layout::readoutCard({0, 0, 160, 300}, 0, 5, 8);
 Validation: Rust core tests in Debug and Release; C++ core suite in Debug and Release (six suites pass in each). Debug enables assertions in the existing tests; new checks also remain active with NDEBUG. Runtime DAW, native screenshots and performance sampling were not run: these additions are dependency-free utilities with no new timer, painter, host parameter or plugin binary. No host integration or visual parity certification is claimed.
 
 Full historical parity remains unverified: the existing Rust shell, developer inspector and C++ JUCE editor have different host integrations, and catalogue pixel comparisons are still an existing milestone. The matching additions here do not establish full toolkit parity.
+
+## GoodLookinDri 0.2 lit rendering port — 2026-11-14
+
+GoodLookinDri 0.2 (3D 2.0) was ported into the JUCE adapter rather than pulled in as a PR:
+
+- **Lit knobs:** `<goodlookinui/Knob3D.h>` (engine, no JUCE), `Knob3DModels.h` (15 presets, 35 physical style models), `adapters/juce/Knobs3D.h`. Select with a `lit_<preset>` style code or `setKnobMode(KnobMode::Lit)`. Flat overrides lit; styles without a model fall back to classic.
+- **Redesigned parts:** `Hardware.h` (finishes, screws, legends, scale ring), `Meters.h` (VU/PPM, LEDs, jewels, faders), `Switches.h` (toggles, rockers, push buttons, `drawToggleAt`), `Retro.h` (display faces, sliders), `SpectrumRenderer.h` (recessed screen, palettes, bloom, four spectrogram maps).
+- Existing function names and signatures are unchanged; the old calls now draw the new look.
+- JUCE has no additive/screen blend or true blur, so glows and soft shadows are stacked translucent layers and will not match the Rust output pixel for pixel.

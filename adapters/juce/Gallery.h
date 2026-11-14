@@ -26,8 +26,9 @@ public:
         for (int i = 0; i < 6; ++i) { views[size_t(i)] = std::make_unique<SpectrumRenderer>(ring, ring, [] { return 48000.0; });
             SpectrumSettings s; s.style = looks[i].style; s.smoothing = looks[i].smooth; s.spectrogramMap = looks[i].map; s.sizeIndex = 4; views[size_t(i)]->setSettings(s); }
         for (int i = 0; i < numPages; ++i) { auto& b = tabs[size_t(i)]; b.setButtonText(pageName(i)); b.setClickingTogglesState(true); b.setRadioGroupId(7); addAndMakeVisible(b); b.onClick = [this, i] { setPage(i); }; }
-        for (auto* b : {&flatBtn, &glowBtn, &animBtn}) { addAndMakeVisible(b); b->setToggleState(false, juce::dontSendNotification); }
-        flatBtn.setButtonText("Flat knobs"); flatBtn.onClick = [this] { useFlatKnobs = flatBtn.getToggleState(); repaint(); };
+        for (auto* b : {&flatBtn, &litBtn, &glowBtn, &animBtn}) { addAndMakeVisible(b); b->setToggleState(false, juce::dontSendNotification); }
+        flatBtn.setButtonText("Flat knobs"); flatBtn.onClick = [this] { useFlatKnobs = flatBtn.getToggleState(); if (useFlatKnobs) { litBtn.setToggleState(false, juce::dontSendNotification); useLitKnobs = false; } repaint(); };
+        litBtn.setButtonText("Lit knobs"); litBtn.onClick = [this] { useLitKnobs = litBtn.getToggleState(); if (useLitKnobs) { flatBtn.setToggleState(false, juce::dontSendNotification); useFlatKnobs = false; useLitKnobs = false; } repaint(); };
         glowBtn.setToggleState(true, juce::dontSendNotification); glowBtn.setButtonText("Glow / neon"); glowBtn.onClick = [this] { retro::glowEnabled = glowBtn.getToggleState(); repaint(); };
         animBtn.setToggleState(true, juce::dontSendNotification); animBtn.setButtonText("Animate"); animBtn.onClick = [this] { repaint(); };
         tabs[0].setToggleState(true, juce::dontSendNotification);
@@ -48,7 +49,7 @@ public:
     void resized() override {
         auto a = getLocalBounds().reduced(10, 8); auto top = a.removeFromTop(28);
         for (auto& b : tabs) b.setBounds(top.removeFromLeft(150).reduced(2, 0));
-        animBtn.setBounds(top.removeFromRight(100)); glowBtn.setBounds(top.removeFromRight(110)); flatBtn.setBounds(top.removeFromRight(110));
+        animBtn.setBounds(top.removeFromRight(100)); glowBtn.setBounds(top.removeFromRight(110)); flatBtn.setBounds(top.removeFromRight(110)); litBtn.setBounds(top.removeFromRight(100));
     }
     void paint(juce::Graphics& g) override {
         g.fillAll(juce::Colour(0xff14181c));
@@ -73,7 +74,7 @@ public:
 
 private:
     int page = 0; float clock = 0.0f;
-    std::array<juce::TextButton, numPages> tabs; juce::ToggleButton flatBtn, glowBtn, animBtn;
+    std::array<juce::TextButton, numPages> tabs; juce::ToggleButton flatBtn, litBtn, glowBtn, animBtn;
     spectrum::SampleRing ring; double phase[8] = {0}; float pink[3] = {0, 0, 0}; juce::Random rng{12};
     // meter state (own ballistics: gallery has no processor)
     float vuPos = 0, ladder = -99, ladderPeak = -99, levelL = 0, levelR = 0, hold = -99; std::vector<float> history;

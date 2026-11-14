@@ -162,6 +162,9 @@ public:
         style.addSeparator();
         style.addSectionHeading("Flat 2D Vector Knobs");
         for (int n = 0; n < numStyles; ++n) style.addItem(juce::String("flat_") + knobStyles[n].code + "  -  (Flat) " + knobStyles[n].description, numStyles + n + 1);
+        style.addSeparator();
+        style.addSectionHeading("Lit 3D Knobs (shaded sprites)");
+        for (int n = 0; n < numStyles; ++n) style.addItem(juce::String("lit_") + knobStyles[n].code + "  -  (Lit 3D) " + knobStyles[n].description, numStyles * 2 + n + 1);
         for (auto* t : {&label, &font, &x, &y, &w, &h}) {
             t->setSelectAllWhenFocused(true);
             t->onReturnKey = [this] { edit(); }; t->onFocusLost = [this] { edit(); };
@@ -213,8 +216,8 @@ private:
         label.setText(i.label, false); colourHex = i.colour; chip.set(colour(i.colour));
         if (auto* st = findStyle(i.style)) {
             constexpr int numStyles = int(std::size(knobStyles));
-            const bool isFlat = (i.style.rfind("flat_", 0) == 0 || i.style == "flat");
-            style.setSelectedId(int(st - knobStyles) + 1 + (isFlat ? numStyles : 0), juce::dontSendNotification);
+            const auto mode = parseStyle(i.style).mode;
+            style.setSelectedId(int(st - knobStyles) + 1 + (mode == KnobMode::Flat ? numStyles : mode == KnobMode::Lit ? numStyles * 2 : 0), juce::dontSendNotification);
         }
         marksBox.setSelectedId(i.marks=="light" ? 2 : i.marks=="dark" ? 3 : 1, juce::dontSendNotification);
         font.setText(juce::String(i.fontSize), false); x.setText(juce::String(i.x), false); y.setText(juce::String(i.y), false);
@@ -247,6 +250,7 @@ private:
                 constexpr int numStyles = int(std::size(knobStyles));
                 if (sel <= numStyles) i.style = knobStyles[sel - 1].code;
                 else if (sel <= numStyles * 2) i.style = std::string("flat_") + knobStyles[sel - numStyles - 1].code;
+                else if (sel <= numStyles * 3) i.style = std::string("lit_") + knobStyles[sel - numStyles * 2 - 1].code;
             }
             i.marks = marksBox.getSelectedId() == 2 ? "light" : marksBox.getSelectedId() == 3 ? "dark" : "auto";
             i.fontSize = num(font); i.x = num(x); i.y = num(y); i.width = num(w); i.height = num(h); validate(i);

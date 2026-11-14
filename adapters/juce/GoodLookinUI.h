@@ -4,6 +4,7 @@
 #include <goodlookinui/Design.h>
 #include "Knobs.h"
 #include "KnobsFlat.h"
+#include "Knobs3D.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <fstream>
 #include <functional>
@@ -274,24 +275,36 @@ inline void drawConsoleKnobFlat(juce::Graphics& g,juce::Rectangle<float> bounds,
     g.setColour(juce::Colour(0xfff5f2df));g.drawLine({tail,tip},2.5f);
 }
 
-// Global toggle for flat (classic 2D vector) rendering mode vs 3D hardware mode.
-// Can also be selected per knob by passing "flat" in item.style (e.g. "flat_Brit", "flat_A", "flat_Mtl").
+// Global default tier for styles without a prefix. Flat (classic 2D vector) overrides lit; both default off,
+// which draws the classic 3D vector hardware. Each knob can also choose its tier with a style prefix:
+// "flat_Brit", "flat_A", "flat_Mtl" or "lit_Mtl", "lit_satin" (the lit tier paints shaded sprites, see Knobs3D.h).
 inline bool useFlatKnobs = false;
+inline bool useLitKnobs = false;
+inline void setKnobMode(KnobMode mode) { useFlatKnobs = mode == KnobMode::Flat; useLitKnobs = mode == KnobMode::Lit; }
+inline KnobMode knobMode() { return useFlatKnobs ? KnobMode::Flat : useLitKnobs ? KnobMode::Lit : KnobMode::Classic; }
+// Panel colour that lit knobs reflect when drawKnob gets no backdrop (default mid grey).
+inline void setKnobFloor(juce::Colour floor) { knobs3d::defaultFloor() = floor; }
+// Device pixels per logical unit for lit sprites; 0 (default) reads it from the graphics context.
+inline void setKnobScale(float scale) { knobs3d::scaleOverride() = scale > 0.0f ? scale : 0.0f; }
 
 inline void drawKnob(juce::Graphics& g, juce::Rectangle<float> bounds,
                      double proportion, const Item& item, bool active, juce::Colour backdrop = juce::Colour()) {
-    std::string styleCode = item.style;
-    bool isFlat = useFlatKnobs;
-    if (styleCode.rfind("flat_", 0) == 0) {
-        isFlat = true;
-        styleCode = styleCode.substr(5);
-    } else if (styleCode == "flat") {
-        isFlat = true;
-        styleCode = "Brit";
-    }
+    const auto parsed = parseStyle(item.style);
+    const KnobMode mode = parsed.mode != KnobMode::Classic ? parsed.mode : knobMode();
+    const std::string styleCode = parsed.code;
+    const bool isFlat = mode == KnobMode::Flat;
     const auto* info=findStyle(styleCode);
     const auto style=info?info->style:KnobStyle::Brit;
     const bool dark=useDarkMarks(item,backdrop);
+    const float angle=float((proportion*1.6-0.8)*juce::MathConstants<double>::pi);
+    if (mode == KnobMode::Lit) {   // styles without a lit model (display and neon) fall through to classic
+        const float dd=juce::jmin(bounds.getWidth(),bounds.getHeight());
+        if(!active) g.beginTransparencyLayer(0.55f);
+        const bool drawn=knobs3d::drawLitKnob(g, styleCode, bounds.getCentre(), dd*0.5f, angle,
+                                              active?colour(item.colour):juce::Colour(0xff697170), backdrop, dark);
+        if(!active) g.endTransparencyLayer();
+        if (drawn) return;
+    }
     if(style==KnobStyle::Brit) {
         if (isFlat) drawConsoleKnobFlat(g,bounds,proportion,item,active,dark);
         else drawConsoleKnob(g,bounds,proportion,item,active,dark);

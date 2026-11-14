@@ -12,6 +12,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace goodlookinui {
@@ -71,15 +72,34 @@ inline constexpr StyleInfo knobStyles[] = {
     {KnobStyle::Wnt, "Wnt", "",       "Walnut wood top inside a chrome collar, pointer line"},
     {KnobStyle::Rck, "Rck", "",       "Small black rack-unit knob: fluted skirt, satin top, soft contact shadow, bright pointer line"},
 };
-// Accepts a style code or a legacy name from older design files.
+// Rendering tier of a knob; it does not add entries to the style catalogue.
+enum class KnobMode { Flat, Classic, Lit };
+struct ParsedStyle { KnobMode mode; std::string code; };
+// Explicit prefixes override the caller's mode. Bare "flat" is the legacy Brit alias.
+inline ParsedStyle parseStyle(const std::string& name) {
+    if (name.rfind("flat_", 0) == 0) return {KnobMode::Flat, name.substr(5)};
+    if (name.rfind("lit_", 0) == 0) return {KnobMode::Lit, name.substr(4)};
+    if (name == "flat") return {KnobMode::Flat, "Brit"};
+    return {KnobMode::Classic, name};
+}
+// Accepts a style code or a legacy name from older design files. A lit preset such as "lit_satin"
+// resolves to a representative catalogue entry for validation.
 inline const StyleInfo* findStyle(const std::string& name) {
-    std::string code = name;
-    if (code.rfind("flat_", 0) == 0) code = code.substr(5);
-    else if (code == "flat") code = "Brit";
+    auto p = parseStyle(name);
+    std::string code = p.code;
+    if (p.mode == KnobMode::Lit) {
+        static const std::pair<const char*, const char*> presets[] = {
+            {"satin", "Mtl"}, {"spun", "Mtl"}, {"bakelite", "Bk"}, {"gloss", "Rd"}, {"strip", "Brit"}, {"collet", "Dbl"},
+            {"chicken", "Chk"}, {"wing", "A"}, {"ivory", "Ivr"}, {"chrome", "Chr"}, {"phenolic", "Snk"}, {"wood", "Wd"},
+            {"brass", "Brz"}, {"dome", "Dm"}, {"dual", "Dbl"}};
+        for (auto& e : presets) if (code == e.first) { code = e.second; break; }
+    }
     for (const auto& s : knobStyles)
         if (code == s.code || (*s.legacy && code == s.legacy)) return &s;
     return nullptr;
 }
+inline bool isFlatStyle(const std::string& name) { return parseStyle(name).mode == KnobMode::Flat; }
+inline bool isLitStyle(const std::string& name) { return parseStyle(name).mode == KnobMode::Lit; }
 // Whole-UI faceplate looks (colours are 0xAARRGGBB, JUCE-free).
 struct Faceplate {
     const char* code; const char* name;

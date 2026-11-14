@@ -34,6 +34,9 @@ public:
         styleBox.addSectionHeading("Flat 2D Vector Knobs");
         for (int n = 0; n < numStyles; ++n)
             styleBox.addItem(juce::String("flat_") + knobStyles[n].code + "  -  (Flat) " + knobStyles[n].description, numStyles + n + 2);
+        styleBox.addSeparator();
+        styleBox.addSectionHeading("Lit 3D Knobs (shaded sprites)");
+        for (int n = 0; n < numStyles; ++n) styleBox.addItem(juce::String("lit_") + knobStyles[n].code + "  -  (Lit 3D) " + knobStyles[n].description, numStyles * 2 + n + 2);
         for (auto* box : {&plateBox, &faceBox}) {
             box->addItem("(none)", 1);
             int n = 2;
@@ -117,8 +120,8 @@ private:
         if (style) {
             if (auto* s = goodlookinui::findStyle(code)) {
                 constexpr int numStyles = int(std::size(knobStyles));
-                const bool isFlat = (code.rfind("flat_", 0) == 0 || code == "flat");
-                return int(s - knobStyles) + 2 + (isFlat ? numStyles : 0);
+                const auto mode = goodlookinui::parseStyle(code).mode;
+                return int(s - knobStyles) + 2 + (mode == KnobMode::Flat ? numStyles : mode == KnobMode::Lit ? numStyles * 2 : 0);
             }
         }
         else if (auto* f = goodlookinui::findFaceplate(code)) return int(f - faceplates) + 2;
@@ -145,6 +148,7 @@ private:
             constexpr int numStyles = int(std::size(knobStyles));
             if (id - 2 < numStyles) l.style = knobStyles[id - 2].code;
             else if (id - 2 < numStyles * 2) l.style = std::string("flat_") + knobStyles[id - 2 - numStyles].code;
+            else if (id - 2 < numStyles * 3) l.style = std::string("lit_") + knobStyles[id - 2 - numStyles * 2].code;
         }
         if (auto id = plateBox.getSelectedId(); id > 1) l.plate = faceplates[id - 2].code;
         if (auto id = faceBox.getSelectedId(); id > 1) l.faceplate = faceplates[id - 2].code;
