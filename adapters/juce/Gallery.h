@@ -48,8 +48,10 @@ public:
 
     void resized() override {
         auto a = getLocalBounds().reduced(10, 8); auto top = a.removeFromTop(28);
-        for (auto& b : tabs) b.setBounds(top.removeFromLeft(150).reduced(2, 0));
-        animBtn.setBounds(top.removeFromRight(100)); glowBtn.setBounds(top.removeFromRight(110)); flatBtn.setBounds(top.removeFromRight(110)); litBtn.setBounds(top.removeFromRight(100));
+        // toggles first, so the tabs share whatever width is left and nothing gets squeezed
+        animBtn.setBounds(top.removeFromRight(92)); glowBtn.setBounds(top.removeFromRight(108)); flatBtn.setBounds(top.removeFromRight(100)); litBtn.setBounds(top.removeFromRight(94));
+        const int tabW = juce::jmin(150, top.getWidth() / numPages);
+        for (auto& b : tabs) b.setBounds(top.removeFromLeft(tabW).reduced(2, 0));
     }
     void paint(juce::Graphics& g) override {
         g.fillAll(juce::Colour(0xff14181c));

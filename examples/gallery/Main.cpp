@@ -55,6 +55,15 @@ private:
         g.setPage(2); goodlookinui::juce_adapter::retro::glowEnabled = true; auto on = g.renderPage(2, 1); goodlookinui::juce_adapter::retro::glowEnabled = false; auto off = g.renderPage(2, 1);
         goodlookinui::juce_adapter::retro::glowEnabled = true;
         const bool glowOk = difference(on, off) > 20000; std::printf("%s glow switch changes the meters\n", glowOk ? "PASS" : "FAIL"); if (!glowOk) ++failures;
+        // lit mode must render through the JUCE sprite path and change the knob pages
+        for (int p : {0, 1}) {
+            goodlookinui::juce_adapter::useLitKnobs = false; auto classic = g.renderPage(p, 1);
+            goodlookinui::juce_adapter::useLitKnobs = true; auto lit = g.renderPage(p, 1);
+            goodlookinui::juce_adapter::useLitKnobs = false;
+            const long d = difference(classic, lit); const bool litOk = d > 20000;
+            std::printf("%s lit knobs change page %d: %ld\n", litOk ? "PASS" : "FAIL", p, d); if (!litOk) ++failures;
+            juce::File f = out.getChildFile("gallery_lit_" + juce::String(p) + ".png"); f.deleteFile(); juce::FileOutputStream o(f); juce::PNGImageFormat().writeImageToStream(lit, o);
+        }
         failures += marksTest(out);
         autosaveTest(out, failures);                       // finishes (and quits) asynchronously: it needs the timer to fire
     }
