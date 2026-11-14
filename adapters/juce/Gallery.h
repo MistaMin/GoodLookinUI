@@ -69,6 +69,8 @@ public:
     // Renders one page to an image (for tests and documentation).
     juce::Image renderPage(int p, int seconds = 3, float scale = 1.0f) {
         setPage(p);
+        // the knob mode is global, so the header toggles follow it rather than their own last click
+        litBtn.setToggleState(useLitKnobs, juce::dontSendNotification); flatBtn.setToggleState(useFlatKnobs, juce::dontSendNotification);
         createComponentSnapshot(getLocalBounds(), true, 0.25f);          // one paint first, so the spectrogram history gets its size
         for (int i = 0; i < seconds * 30; ++i) advance(1.0f / 30.0f);
         return createComponentSnapshot(getLocalBounds(), true, scale);

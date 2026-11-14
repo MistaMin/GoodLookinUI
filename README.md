@@ -13,6 +13,12 @@ Everything below is generated in code (no bitmaps) and rendered by the gallery a
 ### 40 plates, with surface finishes
 ![Plates](docs/images/plates.png)
 
+### Lit knobs
+Use a `lit_<preset>` style code (for example, `lit_Brit`) or `setKnobMode(KnobMode::Lit)` for the lit knob tier.
+
+![Lit knobs](docs/images/knobs_lit.png)
+![Plates with lit knobs](docs/images/plates_lit.png)
+
 ### Meters: professional hardware, 80s dash and cyberpunk
 ![Meters](docs/images/meters.png)
 

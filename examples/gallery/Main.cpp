@@ -38,6 +38,13 @@ private:
             juce::File f = out.getChildFile(juce::String(names[p]) + ".png"); f.deleteFile(); juce::FileOutputStream o(f); juce::PNGImageFormat().writeImageToStream(img, o);
             std::printf("wrote %s (%d x %d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
         }
+        goodlookinui::juce_adapter::useLitKnobs = true;
+        for (int p : {0, 1}) {
+            auto img = g.renderPage(p, 5, 2.0f);
+            juce::File f = out.getChildFile(juce::String(names[p]) + "_lit.png"); f.deleteFile(); juce::FileOutputStream o(f); juce::PNGImageFormat().writeImageToStream(img, o);
+            std::printf("wrote %s (%d x %d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
+        }
+        goodlookinui::juce_adapter::useLitKnobs = false;
         setApplicationReturnValue(0); quit();
     }
     void selfTest(const juce::File& out) {

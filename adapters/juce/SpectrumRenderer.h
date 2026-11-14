@@ -67,7 +67,10 @@ struct SpectrumSettings {
         for (auto c : range) s << ',' << juce::String::toHexString(int(c));
         s << ',' << smoothing << ',' << spectrogramMap;
         const SpectrumSettings d;
-        if (palette != d.palette || frame != d.frame || grid != d.grid || labels != d.labels || bloom != d.bloom)
+        bool customRange = false;
+        for (int i = 0; i < 7; ++i) customRange = customRange || range[i] != d.range[i];
+        // Accent is the default, so it also needs the tail when custom range chips would otherwise be read back as Range.
+        if (palette != d.palette || frame != d.frame || grid != d.grid || labels != d.labels || bloom != d.bloom || (palette == Palette::Accent && customRange))
             s << ',' << paletteCode(palette) << ',' << ((frame ? 1 : 0) | (grid ? 2 : 0) | (labels ? 4 : 0)) << ',' << bloom;
         return s;
     }
