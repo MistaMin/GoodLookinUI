@@ -103,3 +103,7 @@ Existing CSV designs with the original HardwareUI header can still be loaded. Ne
 ## License
 
 GoodLookinUI source code and documentation are released under the [MIT License](LICENSE), copyright 2026 Marcos Quirino Deida. This covers the core and JUCE adapter; JUCE and other external dependencies retain their own licenses.
+
+## Recent plugin UI additions
+
+Both toolkits now provide sample-timed loudness/crest readout aggregation, bounded readout-card layout, and caption/switch pairing. See [APIs, source audit and parity evidence](docs/PLUGIN_UI_PARITY.md).
